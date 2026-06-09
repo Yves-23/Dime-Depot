@@ -180,7 +180,6 @@ export default function Reports() {
     return value.replace(/,/g, '')
   }
 
-  // Format amount without RWF suffix
   function formatAmount(amount: number): string {
     return Math.round(amount).toLocaleString()
   }
@@ -503,33 +502,56 @@ export default function Reports() {
                 return (
                   <div key={supplier.id} className="card mb-4">
                     <div className="section-title">{supplier.name}</div>
+
+                    {/* Table header */}
+                    <div className="grid grid-cols-3 gap-2 px-1 mb-1">
+                      <p className="text-xs font-semibold text-gray-400 uppercase">Product</p>
+                      <p className="text-xs font-semibold text-gray-400 uppercase text-center">Sold</p>
+                      <p className="text-xs font-semibold text-gray-400 uppercase text-right">Revenue</p>
+                    </div>
+
                     <div className="space-y-1">
                       {supplierRows.map(row => (
-                        <div key={row.product.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 gap-2">
-                          <div className="flex-1 min-w-0">
+                        <div key={row.product.id} className="grid grid-cols-3 gap-2 items-center py-2 border-b border-gray-100 last:border-0 px-1">
+                          {/* Col 1 — Product + price */}
+                          <div className="min-w-0">
                             <p className="font-medium text-gray-900 text-sm truncate">{row.product.name}</p>
-                            <p className="text-xs text-gray-400">{formatStock(row.soldCasses, row.soldHalves, row.soldRemainingPieces)} sold</p>
+                            <p className="text-xs text-gray-400">
+                              {row.pricePerCasse
+                                ? `${formatAmount(row.pricePerCasse)}/cs`
+                                : <span className="text-red-500">No price</span>}
+                            </p>
                           </div>
-                          <div className="text-right shrink-0">
+
+                          {/* Col 2 — Sold (green badge) */}
+                          <div className="flex justify-center">
+                            <span className="badge-active text-xs">
+                              {formatStock(row.soldCasses, row.soldHalves, row.soldRemainingPieces)}
+                            </span>
+                          </div>
+
+                          {/* Col 3 — Revenue */}
+                          <div className="text-right">
                             <p className="font-semibold text-green-700 text-sm">
                               {row.revenue > 0 ? formatAmount(row.revenue) : '—'}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              {row.pricePerCasse ? `${formatAmount(row.pricePerCasse)}/casse` : <span className="text-red-500">No price</span>}
                             </p>
                           </div>
                         </div>
                       ))}
-                      <div className="flex justify-between items-center pt-2 bg-gray-50 rounded-lg px-3 py-2 mt-1">
-                        <span className="font-semibold text-gray-700 text-sm">{supplier.name} subtotal</span>
-                        <span className="font-bold text-gray-900">
+
+                      {/* Subtotal row */}
+                      <div className="grid grid-cols-3 gap-2 items-center pt-2 bg-gray-50 rounded-lg px-2 py-2 mt-1">
+                        <p className="font-semibold text-gray-700 text-sm col-span-2">{supplier.name} subtotal</p>
+                        <p className="font-bold text-gray-900 text-right">
                           {formatAmount(supplierRows.reduce((sum, r) => sum + r.revenue, 0))}
-                        </span>
+                        </p>
                       </div>
                     </div>
                   </div>
                 )
               })}
+
+              {/* Grand total */}
               <div className="card bg-gray-900 text-white">
                 <div className="flex items-center justify-between">
                   <div>
