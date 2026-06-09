@@ -51,7 +51,6 @@ export default function Reports() {
   const [prices, setPrices] = useState<Price[]>([])
   const [saleRows, setSaleRows] = useState<SaleRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [savingFinances, setSavingFinances] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [reportDate, setReportDate] = useState(today())
   const [hasData, setHasData] = useState(false)
@@ -179,6 +178,11 @@ export default function Reports() {
 
   function parseNumberInput(value: string): string {
     return value.replace(/,/g, '')
+  }
+
+  // Format amount without RWF suffix
+  function formatAmount(amount: number): string {
+    return Math.round(amount).toLocaleString()
   }
 
   async function executeConfirmAction() {
@@ -499,39 +503,29 @@ export default function Reports() {
                 return (
                   <div key={supplier.id} className="card mb-4">
                     <div className="section-title">{supplier.name}</div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-gray-200">
-                            <th className="table-header text-left">Product</th>
-                            <th className="table-header text-center">Sold</th>
-                            <th className="table-header text-right">Price/casse</th>
-                            <th className="table-header text-right">Revenue</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {supplierRows.map(row => (
-                            <tr key={row.product.id} className="border-b border-gray-100 last:border-0">
-                              <td className="table-cell font-medium">{row.product.name}</td>
-                              <td className="table-cell text-center">
-                                <span className="badge-active">{formatStock(row.soldCasses, row.soldHalves, row.soldRemainingPieces)}</span>
-                              </td>
-                              <td className="table-cell text-right text-gray-500">
-                                {row.pricePerCasse ? formatRWF(row.pricePerCasse) : <span className="text-red-500 text-xs">No price</span>}
-                              </td>
-                              <td className="table-cell text-right font-semibold text-green-700">
-                                {row.revenue > 0 ? formatRWF(row.revenue) : '—'}
-                              </td>
-                            </tr>
-                          ))}
-                          <tr className="bg-gray-50">
-                            <td className="table-cell font-semibold" colSpan={3}>{supplier.name} subtotal</td>
-                            <td className="table-cell text-right font-bold text-gray-900">
-                              {formatRWF(supplierRows.reduce((sum, r) => sum + r.revenue, 0))}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <div className="space-y-1">
+                      {supplierRows.map(row => (
+                        <div key={row.product.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 text-sm truncate">{row.product.name}</p>
+                            <p className="text-xs text-gray-400">{formatStock(row.soldCasses, row.soldHalves, row.soldRemainingPieces)} sold</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-semibold text-green-700 text-sm">
+                              {row.revenue > 0 ? formatAmount(row.revenue) : '—'}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {row.pricePerCasse ? `${formatAmount(row.pricePerCasse)}/casse` : <span className="text-red-500">No price</span>}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="flex justify-between items-center pt-2 bg-gray-50 rounded-lg px-3 py-2 mt-1">
+                        <span className="font-semibold text-gray-700 text-sm">{supplier.name} subtotal</span>
+                        <span className="font-bold text-gray-900">
+                          {formatAmount(supplierRows.reduce((sum, r) => sum + r.revenue, 0))}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )
