@@ -48,10 +48,17 @@ export function getPriceForDate(
   date: string
 ): number {
   const productPrices = prices
-    .filter(p => p.product_id === productId && p.effective_date <= date)
-    .sort((a, b) => b.effective_date.localeCompare(a.effective_date))
+    .filter(p => {
+      const effectiveDate = p.effective_date.split('T')[0]
+      return p.product_id === productId && effectiveDate <= date
+    })
+    .sort((a, b) => {
+      const dateA = a.effective_date.split('T')[0]
+      const dateB = b.effective_date.split('T')[0]
+      return dateB.localeCompare(dateA)
+    })
 
-  return productPrices.length > 0 ? productPrices[0].price_per_casse : 0
+  return productPrices.length > 0 ? Number(productPrices[0].price_per_casse) : 0
 }
 
 // Get today's date as YYYY-MM-DD string
