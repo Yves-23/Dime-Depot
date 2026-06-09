@@ -46,15 +46,6 @@ export default function Admin() {
     }
   }
 
-  async function toggleAdmin(b: Business) {
-    try {
-      await adminAPI.toggleAdmin(b.id, !b.is_admin)
-      toast.success(b.is_admin ? 'Admin removed' : 'Admin granted')
-      loadData()
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update admin')
-    }
-  }
 
   if (loading) {
     return (
@@ -162,12 +153,7 @@ export default function Admin() {
                     >
                       {b.is_active ? 'Deactivate' : 'Activate'}
                     </button>
-                    <button
-                      onClick={() => toggleAdmin(b)}
-                      className="text-xs font-medium px-2 py-1 rounded text-purple-600 hover:bg-purple-50"
-                    >
-                      {b.is_admin ? 'Remove admin' : 'Make admin'}
-                    </button>
+                    
                   </div>
                 </td>
               </tr>
