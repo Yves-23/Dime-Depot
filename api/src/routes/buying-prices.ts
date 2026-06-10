@@ -33,7 +33,6 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Price must be greater than 0' })
     }
 
-    // Verify product belongs to this business
     const product = await query(
       'SELECT id FROM products WHERE id = $1 AND business_id = $2',
       [product_id, req.business!.id]
@@ -66,7 +65,7 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
       return res.status(400).json({ error: 'Start date and end date are required' })
     }
 
-    // Fetch one day before start_date so the first day has a "yesterday"
+    // Fetch one day before start_date so first day has a "yesterday"
     const startDateObj = new Date(start_date as string)
     startDateObj.setDate(startDateObj.getDate() - 1)
     const year = startDateObj.getFullYear()
@@ -74,7 +73,7 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
     const day = String(startDateObj.getDate()).padStart(2, '0')
     const dayBeforeStart = `${year}-${month}-${day}`
 
-    // Get all stock entries from day before start to end
+    // Get stock entries from day before start to end
     const entries = await query(
       `SELECT se.*, p.pieces_per_casse, p.id as prod_id
        FROM stock_entries se
@@ -97,7 +96,7 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
       [req.business!.id]
     )
 
-    // Get received stock only within requested range
+    // Get received stock in range
     const received = await query(
       `SELECT * FROM stock_received 
        WHERE business_id = $1 
@@ -105,7 +104,23 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
       [req.business!.id, start_date, end_date]
     )
 
-    // Get expenses only within requested range
+    // Get daily finances (momo + cash) in range
+    const finances = await query(
+      `SELECT * FROM daily_finances 
+       WHERE business_id = $1 
+       AND entry_date BETWEEN $2 AND $3`,
+      [req.business!.id, start_date, end_date]
+    )
+
+    // Get daily debts in range
+    const debts = await query(
+      `SELECT * FROM daily_debts 
+       WHERE business_id = $1 
+       AND entry_date BETWEEN $2 AND $3`,
+      [req.business!.id, start_date, end_date]
+    )
+
+    // Get expenses in range
     const expenses = await query(
       `SELECT * FROM daily_expenses 
        WHERE business_id = $1 
@@ -113,33 +128,25 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
       [req.business!.id, start_date, end_date]
     )
 
-    // Helper: get price for a product on a specific date
-    function getPriceForDate(prices: any[], productId: string, date: string): number {
-      const filtered = prices
-        .filter(p => {
-          const effectiveDate = p.effective_date.toISOString
-            ? p.effective_date.toISOString().split('T')[0]
-            : String(p.effective_date).split('T')[0]
-          return p.product_id === productId && effectiveDate <= date
-        })
-        .sort((a, b) => {
-          const dateA = a.effective_date.toISOString
-            ? a.effective_date.toISOString().split('T')[0]
-            : String(a.effective_date).split('T')[0]
-          const dateB = b.effective_date.toISOString
-            ? b.effective_date.toISOString().split('T')[0]
-            : String(b.effective_date).split('T')[0]
-          return dateB.localeCompare(dateA)
-        })
-      return filtered.length > 0 ? parseFloat(filtered[0].price_per_casse) : 0
-    }
-
-    // Helper: normalize date from DB to YYYY-MM-DD string
+    // Helper: normalize date to YYYY-MM-DD
     function toDateStr(val: any): string {
       if (!val) return ''
       if (typeof val === 'string') return val.split('T')[0]
       if (val.toISOString) return val.toISOString().split('T')[0]
       return String(val).split('T')[0]
+    }
+
+    // Helper: get price for a product on a specific date
+    function getPriceForDate(prices: any[], productId: string, date: string): number {
+      const filtered = prices
+        .filter(p => {
+          const effectiveDate = toDateStr(p.effective_date)
+          return p.product_id === productId && effectiveDate <= date
+        })
+        .sort((a, b) =>
+          toDateStr(b.effective_date).localeCompare(toDateStr(a.effective_date))
+        )
+      return filtered.length > 0 ? parseFloat(filtered[0].price_per_casse) : 0
     }
 
     // Group entries by date
@@ -153,13 +160,14 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
     const allDates = Object.keys(entriesByDate).sort()
     let totalRevenue = 0
     let totalBuyingCost = 0
-    let totalExpenses = 0
+    let totalSurplus = 0
+    let totalDeficit = 0
     const dailySummaries: any[] = []
 
     for (let i = 0; i < allDates.length; i++) {
       const date = allDates[i]
 
-      // Only process dates within the requested range — skip day before
+      // Skip dates outside requested range (day before is just for reference)
       if (date < (start_date as string) || date > (end_date as string)) continue
 
       const prevDate = allDates[i - 1]
@@ -185,12 +193,10 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
           todayEntry.casses * ppc +
           todayEntry.halves * (ppc / 2) +
           todayEntry.pieces
-
         const yesterdayPieces =
           yesterdayEntry.casses * ppc +
           yesterdayEntry.halves * (ppc / 2) +
           yesterdayEntry.pieces
-
         const receivedPieces = receivedToday
           ? (receivedToday.supplier_casses + receivedToday.return_casses) * ppc +
             receivedToday.return_halves * (ppc / 2) +
@@ -207,23 +213,48 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
         dayBuyingCost += (soldPieces / ppc) * buyingPrice
       })
 
-      const dayExpenses = expenses.rows
+      // Total collected = MoMo + Cash + Debts + Expenses
+      const dayFinance = finances.rows.find((f: any) => toDateStr(f.entry_date) === date)
+      const dayMomo = dayFinance ? parseFloat(dayFinance.momo) : 0
+      const dayCash = dayFinance ? parseFloat(dayFinance.cash) : 0
+      const dayDebts = debts.rows
+        .filter((d: any) => toDateStr(d.entry_date) === date)
+        .reduce((sum: number, d: any) => sum + parseFloat(d.amount), 0)
+      const dayExpensesTotal = expenses.rows
         .filter((e: any) => toDateStr(e.entry_date) === date)
         .reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0)
 
+      const dayCollected = dayMomo + dayCash + dayDebts + dayExpensesTotal
+
+      // Surplus = collected > revenue (extra money)
+      // Deficit = collected < revenue (missing money)
+      const dayDifference = dayCollected - dayRevenue
+      const daySurplus = dayDifference > 0 ? dayDifference : 0
+      const dayDeficit = dayDifference < 0 ? Math.abs(dayDifference) : 0
+
+      // Real Profit = (Revenue - Buying Cost) + Surplus - Deficit
+      const dayGrossProfit = dayRevenue - dayBuyingCost
+      const dayRealProfit = dayGrossProfit + daySurplus - dayDeficit
+
       totalRevenue += dayRevenue
       totalBuyingCost += dayBuyingCost
-      totalExpenses += dayExpenses
+      totalSurplus += daySurplus
+      totalDeficit += dayDeficit
 
-      // Profit = Revenue - Buying Cost only (no expenses)
       dailySummaries.push({
         date,
         revenue: dayRevenue,
         buying_cost: dayBuyingCost,
-        expenses: dayExpenses,
-        profit: dayRevenue - dayBuyingCost,
+        collected: dayCollected,
+        surplus: daySurplus,
+        deficit: dayDeficit,
+        gross_profit: dayGrossProfit,
+        profit: dayRealProfit,
       })
     }
+
+    const totalGrossProfit = totalRevenue - totalBuyingCost
+    const totalRealProfit = totalGrossProfit + totalSurplus - totalDeficit
 
     return res.json({
       summary: {
@@ -231,8 +262,10 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
         end_date,
         total_revenue: totalRevenue,
         total_buying_cost: totalBuyingCost,
-        total_expenses: totalExpenses,
-        total_profit: totalRevenue - totalBuyingCost,
+        total_surplus: totalSurplus,
+        total_deficit: totalDeficit,
+        total_gross_profit: totalGrossProfit,
+        total_profit: totalRealProfit,
         daily: dailySummaries,
       }
     })
