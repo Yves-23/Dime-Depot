@@ -66,7 +66,15 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
       return res.status(400).json({ error: 'Start date and end date are required' })
     }
 
-    // Get all stock entries in range
+    // Fetch one day before start_date so the first day has a "yesterday"
+    const startDateObj = new Date(start_date as string)
+    startDateObj.setDate(startDateObj.getDate() - 1)
+    const year = startDateObj.getFullYear()
+    const month = String(startDateObj.getMonth() + 1).padStart(2, '0')
+    const day = String(startDateObj.getDate()).padStart(2, '0')
+    const dayBeforeStart = `${year}-${month}-${day}`
+
+    // Get all stock entries from day before start to end
     const entries = await query(
       `SELECT se.*, p.pieces_per_casse, p.id as prod_id
        FROM stock_entries se
@@ -74,7 +82,7 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
        WHERE se.business_id = $1 
        AND se.entry_date BETWEEN $2 AND $3
        ORDER BY se.entry_date ASC`,
-      [req.business!.id, start_date, end_date]
+      [req.business!.id, dayBeforeStart, end_date]
     )
 
     // Get all selling prices
@@ -89,7 +97,7 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
       [req.business!.id]
     )
 
-    // Get all received stock in range
+    // Get received stock only within requested range
     const received = await query(
       `SELECT * FROM stock_received 
        WHERE business_id = $1 
@@ -97,7 +105,7 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
       [req.business!.id, start_date, end_date]
     )
 
-    // Get all expenses in range
+    // Get expenses only within requested range
     const expenses = await query(
       `SELECT * FROM daily_expenses 
        WHERE business_id = $1 
@@ -105,54 +113,88 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
       [req.business!.id, start_date, end_date]
     )
 
-    // Helper to get price for a date
+    // Helper: get price for a product on a specific date
     function getPriceForDate(prices: any[], productId: string, date: string): number {
       const filtered = prices
-        .filter(p => p.product_id === productId && p.effective_date <= date)
-        .sort((a, b) => b.effective_date.localeCompare(a.effective_date))
+        .filter(p => {
+          const effectiveDate = p.effective_date.toISOString
+            ? p.effective_date.toISOString().split('T')[0]
+            : String(p.effective_date).split('T')[0]
+          return p.product_id === productId && effectiveDate <= date
+        })
+        .sort((a, b) => {
+          const dateA = a.effective_date.toISOString
+            ? a.effective_date.toISOString().split('T')[0]
+            : String(a.effective_date).split('T')[0]
+          const dateB = b.effective_date.toISOString
+            ? b.effective_date.toISOString().split('T')[0]
+            : String(b.effective_date).split('T')[0]
+          return dateB.localeCompare(dateA)
+        })
       return filtered.length > 0 ? parseFloat(filtered[0].price_per_casse) : 0
     }
 
-    // Group entries by date to calculate daily sales
+    // Helper: normalize date from DB to YYYY-MM-DD string
+    function toDateStr(val: any): string {
+      if (!val) return ''
+      if (typeof val === 'string') return val.split('T')[0]
+      if (val.toISOString) return val.toISOString().split('T')[0]
+      return String(val).split('T')[0]
+    }
+
+    // Group entries by date
     const entriesByDate: Record<string, any[]> = {}
     entries.rows.forEach((entry: any) => {
-      const date = entry.entry_date.toISOString().split('T')[0]
+      const date = toDateStr(entry.entry_date)
       if (!entriesByDate[date]) entriesByDate[date] = []
       entriesByDate[date].push(entry)
     })
 
-    const dates = Object.keys(entriesByDate).sort()
+    const allDates = Object.keys(entriesByDate).sort()
     let totalRevenue = 0
     let totalBuyingCost = 0
     let totalExpenses = 0
     const dailySummaries: any[] = []
 
-    for (let i = 0; i < dates.length; i++) {
-      const date = dates[i]
-      const prevDate = dates[i - 1]
-      if (!prevDate) continue
+    for (let i = 0; i < allDates.length; i++) {
+      const date = allDates[i]
 
+      // Only process dates within the requested range — skip day before
+      if (date < (start_date as string) || date > (end_date as string)) continue
+
+      const prevDate = allDates[i - 1]
       const todayEntries = entriesByDate[date]
-      const yesterdayEntries = entriesByDate[prevDate] || []
+      const yesterdayEntries = prevDate ? (entriesByDate[prevDate] || []) : []
 
       let dayRevenue = 0
       let dayBuyingCost = 0
 
       todayEntries.forEach((todayEntry: any) => {
-        const yesterdayEntry = yesterdayEntries.find((e: any) => e.product_id === todayEntry.product_id)
+        const yesterdayEntry = yesterdayEntries.find(
+          (e: any) => e.product_id === todayEntry.product_id
+        )
         if (!yesterdayEntry) return
 
         const receivedToday = received.rows.find((r: any) =>
           r.product_id === todayEntry.product_id &&
-          r.received_date.toISOString().split('T')[0] === date
+          toDateStr(r.received_date) === date
         )
 
-        const piecesPerCasse = todayEntry.pieces_per_casse
-        const todayPieces = (todayEntry.casses * piecesPerCasse) + (todayEntry.halves * piecesPerCasse / 2) + todayEntry.pieces
-        const yesterdayPieces = (yesterdayEntry.casses * piecesPerCasse) + (yesterdayEntry.halves * piecesPerCasse / 2) + yesterdayEntry.pieces
+        const ppc = todayEntry.pieces_per_casse
+        const todayPieces =
+          todayEntry.casses * ppc +
+          todayEntry.halves * (ppc / 2) +
+          todayEntry.pieces
+
+        const yesterdayPieces =
+          yesterdayEntry.casses * ppc +
+          yesterdayEntry.halves * (ppc / 2) +
+          yesterdayEntry.pieces
+
         const receivedPieces = receivedToday
-          ? ((receivedToday.supplier_casses + receivedToday.return_casses) * piecesPerCasse) +
-            (receivedToday.return_halves * piecesPerCasse / 2) + receivedToday.return_pieces
+          ? (receivedToday.supplier_casses + receivedToday.return_casses) * ppc +
+            receivedToday.return_halves * (ppc / 2) +
+            receivedToday.return_pieces
           : 0
 
         const soldPieces = yesterdayPieces + receivedPieces - todayPieces
@@ -161,24 +203,25 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
         const sellingPrice = getPriceForDate(sellingPrices.rows, todayEntry.product_id, date)
         const buyingPrice = getPriceForDate(buyingPrices.rows, todayEntry.product_id, date)
 
-        dayRevenue += (soldPieces / piecesPerCasse) * sellingPrice
-        dayBuyingCost += (soldPieces / piecesPerCasse) * buyingPrice
+        dayRevenue += (soldPieces / ppc) * sellingPrice
+        dayBuyingCost += (soldPieces / ppc) * buyingPrice
       })
 
       const dayExpenses = expenses.rows
-        .filter((e: any) => e.entry_date.toISOString().split('T')[0] === date)
+        .filter((e: any) => toDateStr(e.entry_date) === date)
         .reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0)
 
       totalRevenue += dayRevenue
       totalBuyingCost += dayBuyingCost
       totalExpenses += dayExpenses
 
+      // Profit = Revenue - Buying Cost only (no expenses)
       dailySummaries.push({
         date,
         revenue: dayRevenue,
         buying_cost: dayBuyingCost,
         expenses: dayExpenses,
-        profit: dayRevenue - dayBuyingCost - dayExpenses,
+        profit: dayRevenue - dayBuyingCost,
       })
     }
 
@@ -189,7 +232,7 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
         total_revenue: totalRevenue,
         total_buying_cost: totalBuyingCost,
         total_expenses: totalExpenses,
-        total_profit: totalRevenue - totalBuyingCost - totalExpenses,
+        total_profit: totalRevenue - totalBuyingCost,
         daily: dailySummaries,
       }
     })
