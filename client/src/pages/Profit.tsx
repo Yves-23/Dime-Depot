@@ -37,23 +37,29 @@ export default function Profit() {
   }, [business, period])
 
   function getDateRange(): { start: string; end: string } {
-    const now = new Date()
     const todayStr = today()
 
     if (period === 'week') {
-      const day = now.getDay()
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1)
-      const monday = new Date(now.setDate(diff))
+      const now = new Date()
+      const day = now.getDay() // 0=Sun, 1=Mon...
+      const diffToMonday = day === 0 ? -6 : 1 - day
+      const monday = new Date(now)
+      monday.setDate(now.getDate() + diffToMonday)
+      const year = monday.getFullYear()
+      const month = String(monday.getMonth() + 1).padStart(2, '0')
+      const date = String(monday.getDate()).padStart(2, '0')
       return {
-        start: monday.toISOString().split('T')[0],
+        start: `${year}-${month}-${date}`,
         end: todayStr,
       }
     }
 
     if (period === 'month') {
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
       return {
-        start: firstDay.toISOString().split('T')[0],
+        start: `${year}-${month}-01`,
         end: todayStr,
       }
     }
@@ -87,13 +93,32 @@ export default function Profit() {
     return 'bg-gray-50 border-gray-200'
   }
 
-  // Real profit = Revenue - Buying Cost only
   function getRealProfit(revenue: number, buying_cost: number): number {
     return revenue - buying_cost
   }
 
   function formatAmount(amount: number): string {
     return Math.round(amount).toLocaleString()
+  }
+
+  function formatDateSafe(dateStr: string): string {
+    const clean = dateStr.split('T')[0]
+    const [year, month, day] = clean.split('-').map(Number)
+    return new Date(year, month - 1, day).toLocaleDateString('en-RW', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    })
+  }
+
+  function formatDateRangeSafe(dateStr: string): string {
+    const clean = dateStr.split('T')[0]
+    const [year, month, day] = clean.split('-').map(Number)
+    return new Date(year, month - 1, day).toLocaleDateString('en-RW', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    })
   }
 
   return (
@@ -112,7 +137,7 @@ export default function Profit() {
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 period === p
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -157,17 +182,17 @@ export default function Profit() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-3 mb-6">
           {[1, 2, 3].map(i => (
-            <div key={i} className="card animate-pulse h-24">
-              <div className="h-4 bg-gray-200 rounded mb-2 w-2/3"></div>
-              <div className="h-7 bg-gray-200 rounded w-full"></div>
+            <div key={i} className="card animate-pulse h-20">
+              <div className="h-3 bg-gray-200 rounded mb-2 w-2/3"></div>
+              <div className="h-6 bg-gray-200 rounded w-full"></div>
             </div>
           ))}
         </div>
       ) : summary ? (
         <>
-          {/* Summary cards — 3 cards only */}
+          {/* Summary cards */}
           <div className="grid grid-cols-3 gap-3 mb-6">
             <div className="card border-l-4 border-l-blue-500 p-3">
               <p className="text-xs text-gray-500 mb-1">Revenue</p>
@@ -189,7 +214,7 @@ export default function Profit() {
           {/* Profit breakdown */}
           <div className="card mb-6 bg-gray-900 text-white">
             <p className="text-gray-400 text-sm mb-3">
-              {new Date(summary.start_date).toLocaleDateString()} — {new Date(summary.end_date).toLocaleDateString()}
+              {formatDateRangeSafe(summary.start_date)} — {formatDateRangeSafe(summary.end_date)}
             </p>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
@@ -210,7 +235,7 @@ export default function Profit() {
             </div>
           </div>
 
-          {/* Daily breakdown — card layout no table */}
+          {/* Daily breakdown */}
           {summary.daily.length > 0 ? (
             <div className="card">
               <div className="section-title">Daily breakdown</div>
@@ -227,10 +252,10 @@ export default function Profit() {
                   const realProfit = getRealProfit(day.revenue, day.buying_cost)
                   return (
                     <div key={day.date} className="grid grid-cols-3 gap-2 items-center py-2 border-b border-gray-100 last:border-0 px-1">
-                      {/* Date */}
+                      {/* Date + buying cost below */}
                       <div>
                         <p className="text-sm text-gray-800 font-medium">
-                          {new Date(day.date).toLocaleDateString('en-RW', { weekday: 'short', day: 'numeric', month: 'short' })}
+                          {formatDateSafe(day.date)}
                         </p>
                         {day.buying_cost > 0 && (
                           <p className="text-xs text-red-400">−{formatAmount(day.buying_cost)}</p>
@@ -272,7 +297,7 @@ export default function Profit() {
           ) : (
             <div className="card text-center py-8">
               <p className="text-gray-500">No data found for this period.</p>
-              <p className="text-gray-400 text-sm mt-1">Make sure you have daily entries and buying prices set.</p>
+              <p className="text-gray-400 text-sm mt-1">Make sure you have daily entries and buying prices set for this period.</p>
             </div>
           )}
         </>
