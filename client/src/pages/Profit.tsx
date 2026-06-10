@@ -10,7 +10,10 @@ interface DailySummary {
   date: string
   revenue: number
   buying_cost: number
-  expenses: number
+  collected: number
+  surplus: number
+  deficit: number
+  gross_profit: number
   profit: number
 }
 
@@ -19,7 +22,9 @@ interface Summary {
   end_date: string
   total_revenue: number
   total_buying_cost: number
-  total_expenses: number
+  total_surplus: number
+  total_deficit: number
+  total_gross_profit: number
   total_profit: number
   daily: DailySummary[]
 }
@@ -40,28 +45,20 @@ export default function Profit() {
     const todayStr = today()
 
     if (period === 'week') {
-      const now = new Date()
-      const day = now.getDay() // 0=Sun, 1=Mon...
+      const [y, m, d] = todayStr.split('-').map(Number)
+      const localNow = new Date(y, m - 1, d)
+      const day = localNow.getDay()
       const diffToMonday = day === 0 ? -6 : 1 - day
-      const monday = new Date(now)
-      monday.setDate(now.getDate() + diffToMonday)
+      const monday = new Date(y, m - 1, d + diffToMonday)
       const year = monday.getFullYear()
       const month = String(monday.getMonth() + 1).padStart(2, '0')
       const date = String(monday.getDate()).padStart(2, '0')
-      return {
-        start: `${year}-${month}-${date}`,
-        end: todayStr,
-      }
+      return { start: `${year}-${month}-${date}`, end: todayStr }
     }
 
     if (period === 'month') {
-      const now = new Date()
-      const year = now.getFullYear()
-      const month = String(now.getMonth() + 1).padStart(2, '0')
-      return {
-        start: `${year}-${month}-01`,
-        end: todayStr,
-      }
+      const [y, m] = todayStr.split('-')
+      return { start: `${y}-${m}-01`, end: todayStr }
     }
 
     return { start: customStart, end: customEnd }
@@ -93,10 +90,6 @@ export default function Profit() {
     return 'bg-gray-50 border-gray-200'
   }
 
-  function getRealProfit(revenue: number, buying_cost: number): number {
-    return revenue - buying_cost
-  }
-
   function formatAmount(amount: number): string {
     return Math.round(amount).toLocaleString()
   }
@@ -105,9 +98,7 @@ export default function Profit() {
     const clean = dateStr.split('T')[0]
     const [year, month, day] = clean.split('-').map(Number)
     return new Date(year, month - 1, day).toLocaleDateString('en-RW', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
+      weekday: 'short', day: 'numeric', month: 'short',
     })
   }
 
@@ -115,9 +106,7 @@ export default function Profit() {
     const clean = dateStr.split('T')[0]
     const [year, month, day] = clean.split('-').map(Number)
     return new Date(year, month - 1, day).toLocaleDateString('en-RW', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
+      day: 'numeric', month: 'short', year: 'numeric',
     })
   }
 
@@ -126,7 +115,7 @@ export default function Profit() {
       <div className="mb-6">
         <h1 className="page-title mb-1">Profit Report</h1>
         <p className="text-gray-500 text-sm">
-          Real profit = Revenue − Buying cost
+          Real profit = (Revenue − Buying cost) + Surplus − Deficit
         </p>
       </div>
 
@@ -138,9 +127,7 @@ export default function Profit() {
               key={p}
               onClick={() => setPeriod(p)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                period === p
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                period === p ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
               {p === 'week' ? 'This week' : p === 'month' ? 'This month' : 'Custom range'}
@@ -152,29 +139,16 @@ export default function Profit() {
           <div className="flex gap-3 items-end flex-wrap">
             <div>
               <label className="label text-xs">From</label>
-              <input
-                type="date"
-                className="input text-base"
-                value={customStart}
-                onChange={e => setCustomStart(e.target.value)}
-                max={today()}
-              />
+              <input type="date" className="input text-base" value={customStart}
+                onChange={e => setCustomStart(e.target.value)} max={today()} />
             </div>
             <div>
               <label className="label text-xs">To</label>
-              <input
-                type="date"
-                className="input text-base"
-                value={customEnd}
-                onChange={e => setCustomEnd(e.target.value)}
-                max={today()}
-              />
+              <input type="date" className="input text-base" value={customEnd}
+                onChange={e => setCustomEnd(e.target.value)} max={today()} />
             </div>
-            <button
-              onClick={loadSummary}
-              className="btn-primary"
-              disabled={!customStart || !customEnd}
-            >
+            <button onClick={loadSummary} className="btn-primary"
+              disabled={!customStart || !customEnd}>
               Show
             </button>
           </div>
@@ -202,34 +176,50 @@ export default function Profit() {
               <p className="text-xs text-gray-500 mb-1">Buying Cost</p>
               <p className="text-base font-bold text-red-600">{formatAmount(summary.total_buying_cost)}</p>
             </div>
-            <div className={`card border-2 p-3 ${getProfitBg(getRealProfit(summary.total_revenue, summary.total_buying_cost))}`}>
-              <p className="text-xs text-gray-500 mb-1">Profit</p>
-              <p className={`text-base font-bold ${getProfitColor(getRealProfit(summary.total_revenue, summary.total_buying_cost))}`}>
-                {getRealProfit(summary.total_revenue, summary.total_buying_cost) >= 0 ? '+' : ''}
-                {formatAmount(getRealProfit(summary.total_revenue, summary.total_buying_cost))}
+            <div className={`card border-2 p-3 ${getProfitBg(summary.total_profit)}`}>
+              <p className="text-xs text-gray-500 mb-1">Real Profit</p>
+              <p className={`text-base font-bold ${getProfitColor(summary.total_profit)}`}>
+                {summary.total_profit >= 0 ? '+' : ''}{formatAmount(summary.total_profit)}
               </p>
             </div>
           </div>
 
-          {/* Profit breakdown */}
+          {/* Full formula breakdown */}
           <div className="card mb-6 bg-gray-900 text-white">
             <p className="text-gray-400 text-sm mb-3">
-              {formatDateRangeSafe(summary.start_date)} — {formatDateRangeSafe(summary.end_date)}
+              {formatDateRangeSafe(summary.start_date as string)} — {formatDateRangeSafe(summary.end_date as string)}
             </p>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-gray-300 text-sm">Total Revenue</span>
+                <span className="text-gray-300 text-sm">Revenue</span>
                 <span className="font-semibold text-white">{formatRWF(summary.total_revenue)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-300 text-sm">− Buying Cost</span>
                 <span className="font-semibold text-red-400">− {formatRWF(summary.total_buying_cost)}</span>
               </div>
+              <div className="flex justify-between items-center border-t border-gray-700 pt-2">
+                <span className="text-gray-300 text-sm">= Gross Profit</span>
+                <span className={`font-semibold ${getProfitColor(summary.total_gross_profit)}`}>
+                  {summary.total_gross_profit >= 0 ? '+' : ''}{formatRWF(summary.total_gross_profit)}
+                </span>
+              </div>
+              {summary.total_surplus > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300 text-sm">+ Surplus</span>
+                  <span className="font-semibold text-green-400">+ {formatRWF(summary.total_surplus)}</span>
+                </div>
+              )}
+              {summary.total_deficit > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300 text-sm">− Deficit</span>
+                  <span className="font-semibold text-orange-400">− {formatRWF(summary.total_deficit)}</span>
+                </div>
+              )}
               <div className="border-t border-gray-700 pt-2 flex justify-between items-center">
                 <span className="font-bold text-white">= Real Profit</span>
-                <span className={`text-2xl font-bold ${getProfitColor(getRealProfit(summary.total_revenue, summary.total_buying_cost))}`}>
-                  {getRealProfit(summary.total_revenue, summary.total_buying_cost) >= 0 ? '+' : ''}
-                  {formatRWF(getRealProfit(summary.total_revenue, summary.total_buying_cost))}
+                <span className={`text-2xl font-bold ${getProfitColor(summary.total_profit)}`}>
+                  {summary.total_profit >= 0 ? '+' : ''}{formatRWF(summary.total_profit)}
                 </span>
               </div>
             </div>
@@ -240,7 +230,6 @@ export default function Profit() {
             <div className="card">
               <div className="section-title">Daily breakdown</div>
 
-              {/* Header */}
               <div className="grid grid-cols-3 gap-2 px-1 mb-2">
                 <p className="text-xs font-semibold text-gray-400 uppercase">Date</p>
                 <p className="text-xs font-semibold text-gray-400 uppercase text-right">Revenue</p>
@@ -248,48 +237,46 @@ export default function Profit() {
               </div>
 
               <div className="space-y-1">
-                {summary.daily.map(day => {
-                  const realProfit = getRealProfit(day.revenue, day.buying_cost)
-                  return (
-                    <div key={day.date} className="grid grid-cols-3 gap-2 items-center py-2 border-b border-gray-100 last:border-0 px-1">
-                      {/* Date + buying cost below */}
-                      <div>
-                        <p className="text-sm text-gray-800 font-medium">
-                          {formatDateSafe(day.date)}
-                        </p>
+                {summary.daily.map(day => (
+                  <div key={day.date} className="grid grid-cols-3 gap-2 items-center py-2 border-b border-gray-100 last:border-0 px-1">
+                    <div>
+                      <p className="text-sm text-gray-800 font-medium">{formatDateSafe(day.date)}</p>
+                      <div className="space-y-0.5">
                         {day.buying_cost > 0 && (
-                          <p className="text-xs text-red-400">−{formatAmount(day.buying_cost)}</p>
+                          <p className="text-xs text-red-400">−{formatAmount(day.buying_cost)} cost</p>
+                        )}
+                        {day.surplus > 0 && (
+                          <p className="text-xs text-green-500">+{formatAmount(day.surplus)} surplus</p>
+                        )}
+                        {day.deficit > 0 && (
+                          <p className="text-xs text-orange-500">−{formatAmount(day.deficit)} deficit</p>
                         )}
                       </div>
-
-                      {/* Revenue */}
-                      <div className="text-right">
-                        <p className="text-sm text-gray-700">
-                          {day.revenue > 0 ? formatAmount(day.revenue) : '—'}
-                        </p>
-                      </div>
-
-                      {/* Profit */}
-                      <div className="text-right">
-                        <p className={`text-sm font-bold ${getProfitColor(realProfit)}`}>
-                          {realProfit !== 0
-                            ? `${realProfit >= 0 ? '+' : ''}${formatAmount(realProfit)}`
-                            : '—'}
-                        </p>
-                      </div>
                     </div>
-                  )
-                })}
 
-                {/* Total row */}
+                    <div className="text-right">
+                      <p className="text-sm text-gray-700">
+                        {day.revenue > 0 ? formatAmount(day.revenue) : '—'}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className={`text-sm font-bold ${getProfitColor(day.profit)}`}>
+                        {day.profit !== 0
+                          ? `${day.profit >= 0 ? '+' : ''}${formatAmount(day.profit)}`
+                          : '—'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+
                 <div className="grid grid-cols-3 gap-2 items-center pt-2 bg-gray-50 rounded-lg px-2 py-2 mt-1">
                   <p className="font-semibold text-gray-700 text-sm">Total</p>
                   <p className="text-right font-semibold text-gray-900 text-sm">
                     {formatAmount(summary.total_revenue)}
                   </p>
-                  <p className={`text-right font-bold text-sm ${getProfitColor(getRealProfit(summary.total_revenue, summary.total_buying_cost))}`}>
-                    {getRealProfit(summary.total_revenue, summary.total_buying_cost) >= 0 ? '+' : ''}
-                    {formatAmount(getRealProfit(summary.total_revenue, summary.total_buying_cost))}
+                  <p className={`text-right font-bold text-sm ${getProfitColor(summary.total_profit)}`}>
+                    {summary.total_profit >= 0 ? '+' : ''}{formatAmount(summary.total_profit)}
                   </p>
                 </div>
               </div>
@@ -297,7 +284,7 @@ export default function Profit() {
           ) : (
             <div className="card text-center py-8">
               <p className="text-gray-500">No data found for this period.</p>
-              <p className="text-gray-400 text-sm mt-1">Make sure you have daily entries and buying prices set for this period.</p>
+              <p className="text-gray-400 text-sm mt-1">Make sure you have daily entries and buying prices set.</p>
             </div>
           )}
         </>
