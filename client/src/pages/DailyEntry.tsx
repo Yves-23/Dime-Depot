@@ -26,6 +26,15 @@ interface ReceivedPopup {
   return_pieces: string
 }
 
+interface OverstockWarning {
+  productName: string
+  todayPieces: number
+  maxAllowedPieces: number
+  yesterdayPieces: number
+  receivedPieces: number
+  piecesPerCasse: number
+}
+
 export default function DailyEntry() {
   const { business } = useAuth()
   const [rows, setRows] = useState<StockInputRow[]>([])
@@ -36,6 +45,7 @@ export default function DailyEntry() {
   const [yesterdayEntries, setYesterdayEntries] = useState<StockEntry[]>([])
   const [existingEntries, setExistingEntries] = useState<StockEntry[]>([])
   const [receivedPopup, setReceivedPopup] = useState<ReceivedPopup | null>(null)
+  const [overstockWarning, setOverstockWarning] = useState<OverstockWarning | null>(null)
 
   useEffect(() => {
     if (business) loadData()
@@ -143,7 +153,62 @@ export default function DailyEntry() {
     toast.success('Received stock added! Click Save to confirm.')
   }
 
+  function validateStock(): OverstockWarning | null {
+    // Only validate if we have yesterday's entries
+    if (yesterdayEntries.length === 0) return null
+
+    for (const row of rows) {
+      const yesterdayEntry = yesterdayEntries.find(e => e.product_id === row.product.id)
+      if (!yesterdayEntry) continue
+
+      const ppc = row.product.pieces_per_casse
+
+      const yesterdayPieces = stockToPieces(
+        yesterdayEntry.casses,
+        yesterdayEntry.halves,
+        yesterdayEntry.pieces,
+        ppc
+      )
+
+      const receivedPieces = stockToPieces(
+        parseInt(row.supplier_casses) + parseInt(row.return_casses),
+        parseInt(row.return_halves),
+        parseInt(row.return_pieces),
+        ppc
+      )
+
+      const todayPieces = stockToPieces(
+        parseInt(row.casses) || 0,
+        parseInt(row.halves) || 0,
+        parseInt(row.pieces) || 0,
+        ppc
+      )
+
+      const maxAllowed = yesterdayPieces + receivedPieces
+
+      if (todayPieces > maxAllowed) {
+        return {
+          productName: row.product.name,
+          todayPieces,
+          maxAllowedPieces: maxAllowed,
+          yesterdayPieces,
+          receivedPieces,
+          piecesPerCasse: ppc,
+        }
+      }
+    }
+
+    return null
+  }
+
   async function saveEntry() {
+    // Validate stock before saving
+    const warning = validateStock()
+    if (warning) {
+      setOverstockWarning(warning)
+      return
+    }
+
     setSaving(true)
     try {
       const entries = rows.map(row => ({
@@ -202,6 +267,70 @@ export default function DailyEntry() {
 
   return (
     <div>
+      {/* Overstock warning popup */}
+      {overstockWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900">Stock too high!</h2>
+            </div>
+
+            <p className="text-gray-700 font-medium mb-2">{overstockWarning.productName}</p>
+
+            <div className="bg-orange-50 rounded-lg p-3 mb-4 space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Yesterday's closing</span>
+                <span className="font-medium">{formatStock(
+                  Math.floor(overstockWarning.yesterdayPieces / overstockWarning.piecesPerCasse),
+                  0,
+                  overstockWarning.yesterdayPieces % overstockWarning.piecesPerCasse
+                )}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Received today</span>
+                <span className="font-medium text-blue-600">{formatStock(
+                  Math.floor(overstockWarning.receivedPieces / overstockWarning.piecesPerCasse),
+                  0,
+                  overstockWarning.receivedPieces % overstockWarning.piecesPerCasse
+                )}</span>
+              </div>
+              <div className="flex justify-between border-t border-orange-200 pt-1">
+                <span className="text-gray-500">Max allowed today</span>
+                <span className="font-semibold text-gray-900">{formatStock(
+                  Math.floor(overstockWarning.maxAllowedPieces / overstockWarning.piecesPerCasse),
+                  0,
+                  overstockWarning.maxAllowedPieces % overstockWarning.piecesPerCasse
+                )}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">You entered</span>
+                <span className="font-semibold text-red-600">{formatStock(
+                  Math.floor(overstockWarning.todayPieces / overstockWarning.piecesPerCasse),
+                  0,
+                  overstockWarning.todayPieces % overstockWarning.piecesPerCasse
+                )}</span>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-500 mb-5">
+              Today's stock cannot be higher than yesterday's closing stock plus what you received today. If you received new stock, please tap the <span className="font-bold text-blue-600">+</span> button next to the product first.
+            </p>
+
+            <button
+              onClick={() => setOverstockWarning(null)}
+              className="btn-primary w-full"
+            >
+              Go back and fix it
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <h1 className="page-title mb-0">Daily Entry</h1>
         <div className="flex items-center gap-2">
@@ -225,7 +354,7 @@ export default function DailyEntry() {
       )}
       {yesterdayEntries.length === 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 text-sm text-yellow-800">
-          ⚠️ No entry for yesterday. Sales preview will not be available.
+          ⚠️ No entry for yesterday. Stock validation will not be available.
         </div>
       )}
 
@@ -302,26 +431,45 @@ export default function DailyEntry() {
               {supplierRows.map(row => {
                 const globalIndex = rows.indexOf(row)
                 const hasReceived = hasReceivedStock(row)
+
+                // Highlight row red if overstock
+                const yesterdayEntry = yesterdayEntries.find(e => e.product_id === row.product.id)
+                const ppc = row.product.pieces_per_casse
+                const yesterdayPieces = yesterdayEntry ? stockToPieces(yesterdayEntry.casses, yesterdayEntry.halves, yesterdayEntry.pieces, ppc) : null
+                const receivedPieces = stockToPieces(
+                  parseInt(row.supplier_casses) + parseInt(row.return_casses),
+                  parseInt(row.return_halves),
+                  parseInt(row.return_pieces),
+                  ppc
+                )
+                const todayPieces = stockToPieces(parseInt(row.casses) || 0, parseInt(row.halves) || 0, parseInt(row.pieces) || 0, ppc)
+                const isOverstock = yesterdayPieces !== null && todayPieces > (yesterdayPieces + receivedPieces)
+
                 return (
                   <div key={row.product.id}>
-                    <div className="grid grid-cols-10 gap-1 items-center px-1 py-1">
+                    <div className={`grid grid-cols-10 gap-1 items-center px-1 py-1 rounded-lg ${isOverstock ? 'bg-red-50' : ''}`}>
                       <div className="col-span-3">
-                        <p className="text-xs font-semibold text-gray-800 leading-tight truncate">{row.product.name}</p>
+                        <p className={`text-xs font-semibold leading-tight truncate ${isOverstock ? 'text-red-700' : 'text-gray-800'}`}>{row.product.name}</p>
                         <p className="text-xs text-gray-400 leading-tight">{getYesterdayStock(row.product.id)}</p>
                       </div>
                       <div className="col-span-2">
-                        <input type="number" min="0" className="input text-center text-sm py-2 px-0.5" placeholder="0"
+                        <input type="number" min="0"
+                          className={`input text-center text-sm py-2 px-0.5 ${isOverstock ? 'border-red-400 bg-red-50' : ''}`}
+                          placeholder="0"
                           value={row.casses} onChange={e => updateRow(globalIndex, 'casses', e.target.value)} />
                       </div>
                       <div className="col-span-2">
-                        <select className="input text-center text-sm py-2 px-0.5"
+                        <select
+                          className={`input text-center text-sm py-2 px-0.5 ${isOverstock ? 'border-red-400 bg-red-50' : ''}`}
                           value={row.halves} onChange={e => updateRow(globalIndex, 'halves', e.target.value)}>
                           <option value="0">0</option>
                           <option value="1">½</option>
                         </select>
                       </div>
                       <div className="col-span-2">
-                        <input type="number" min="0" className="input text-center text-sm py-2 px-0.5" placeholder="0"
+                        <input type="number" min="0"
+                          className={`input text-center text-sm py-2 px-0.5 ${isOverstock ? 'border-red-400 bg-red-50' : ''}`}
+                          placeholder="0"
                           value={row.pieces} onChange={e => updateRow(globalIndex, 'pieces', e.target.value)} />
                       </div>
                       <div className="col-span-1 flex justify-center">
@@ -333,7 +481,14 @@ export default function DailyEntry() {
                         >+</button>
                       </div>
                     </div>
-                    {hasReceived && (
+                    {isOverstock && (
+                      <div className="px-1 pb-1">
+                        <span className="text-xs text-red-500 font-medium">
+                          ⚠️ Too high! Use + to add received stock first
+                        </span>
+                      </div>
+                    )}
+                    {hasReceived && !isOverstock && (
                       <div className="px-1 pb-1">
                         <span className="text-xs text-blue-500 font-medium">
                           {parseInt(row.supplier_casses) > 0 && `📦 +${row.supplier_casses} from supplier `}
