@@ -182,48 +182,7 @@ export default function Profit() {
                 {summary.total_profit >= 0 ? '+' : ''}{formatAmount(summary.total_profit)}
               </p>
             </div>
-          </div>
-
-          {/* Full formula breakdown */}
-          <div className="card mb-6 bg-gray-900 text-white">
-            <p className="text-gray-400 text-sm mb-3">
-              {formatDateRangeSafe(summary.start_date as string)} — {formatDateRangeSafe(summary.end_date as string)}
-            </p>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-300 text-sm">Revenue</span>
-                <span className="font-semibold text-white">{formatRWF(summary.total_revenue)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-300 text-sm">− Buying Cost</span>
-                <span className="font-semibold text-red-400">− {formatRWF(summary.total_buying_cost)}</span>
-              </div>
-              <div className="flex justify-between items-center border-t border-gray-700 pt-2">
-                <span className="text-gray-300 text-sm">= Gross Profit</span>
-                <span className={`font-semibold ${getProfitColor(summary.total_gross_profit)}`}>
-                  {summary.total_gross_profit >= 0 ? '+' : ''}{formatRWF(summary.total_gross_profit)}
-                </span>
-              </div>
-              {summary.total_surplus > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-300 text-sm">+ Surplus</span>
-                  <span className="font-semibold text-green-400">+ {formatRWF(summary.total_surplus)}</span>
-                </div>
-              )}
-              {summary.total_deficit > 0 && (
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-300 text-sm">− Deficit</span>
-                  <span className="font-semibold text-orange-400">− {formatRWF(summary.total_deficit)}</span>
-                </div>
-              )}
-              <div className="border-t border-gray-700 pt-2 flex justify-between items-center">
-                <span className="font-bold text-white">= Real Profit</span>
-                <span className={`text-2xl font-bold ${getProfitColor(summary.total_profit)}`}>
-                  {summary.total_profit >= 0 ? '+' : ''}{formatRWF(summary.total_profit)}
-                </span>
-              </div>
-            </div>
-          </div>
+          </div>         
 
           {/* Daily breakdown */}
           {summary.daily.length > 0 ? (
