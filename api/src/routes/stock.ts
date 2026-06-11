@@ -4,6 +4,18 @@ import { authenticate, AuthRequest } from '../middleware/auth'
 
 const router = Router()
 
+// Helper: check if a date is older than 24 hours
+function isOlderThan24Hours(dateStr: string): boolean {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const entryDate = new Date(year, month - 1, day)
+  // Set to end of that day (23:59:59)
+  entryDate.setHours(23, 59, 59, 999)
+  const now = new Date()
+  const diffMs = now.getTime() - entryDate.getTime()
+  const diffHours = diffMs / (1000 * 60 * 60)
+  return diffHours > 24
+}
+
 // Get stock entries for a date
 router.get('/entries/:date', authenticate, async (req: AuthRequest, res: Response) => {
   try {
@@ -28,7 +40,11 @@ router.post('/entries', authenticate, async (req: AuthRequest, res: Response) =>
       return res.status(400).json({ error: 'Product and date are required' })
     }
 
-    // Verify product belongs to this business
+    // 24-hour lock check
+    if (isOlderThan24Hours(entry_date)) {
+      return res.status(403).json({ error: 'This entry is locked. Entries cannot be edited after 24 hours.' })
+    }
+
     const product = await query(
       'SELECT id FROM products WHERE id = $1 AND business_id = $2',
       [product_id, req.business!.id]
@@ -54,13 +70,18 @@ router.post('/entries', authenticate, async (req: AuthRequest, res: Response) =>
   }
 })
 
-// Bulk upsert stock entries (save all at once)
+// Bulk upsert stock entries
 router.post('/entries/bulk', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { entries, date } = req.body
 
     if (!entries || !date) {
       return res.status(400).json({ error: 'Entries and date are required' })
+    }
+
+    // 24-hour lock check
+    if (isOlderThan24Hours(date)) {
+      return res.status(403).json({ error: 'This entry is locked. Entries cannot be edited after 24 hours.' })
     }
 
     const results = []
@@ -106,6 +127,11 @@ router.post('/received/bulk', authenticate, async (req: AuthRequest, res: Respon
 
     if (!received || !date) {
       return res.status(400).json({ error: 'Received and date are required' })
+    }
+
+    // 24-hour lock check
+    if (isOlderThan24Hours(date)) {
+      return res.status(403).json({ error: 'This entry is locked. Entries cannot be edited after 24 hours.' })
     }
 
     const results = []

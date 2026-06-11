@@ -104,6 +104,14 @@ export default function DailyEntry() {
     }
   }
 
+  function isLocked(dateStr: string): boolean {
+    const [year, month, day] = dateStr.split('-').map(Number)
+    const entryDate = new Date(year, month - 1, day)
+    entryDate.setHours(23, 59, 59, 999)
+    const diffHours = (new Date().getTime() - entryDate.getTime()) / (1000 * 60 * 60)
+    return diffHours > 24
+  }
+
   function updateRow(index: number, field: keyof StockInputRow, value: string) {
     const updated = [...rows]
     updated[index] = { ...updated[index], [field]: value }
@@ -341,17 +349,21 @@ export default function DailyEntry() {
             onChange={e => setEntryDate(e.target.value)}
             max={today()}
           />
-          <button onClick={saveEntry} disabled={saving} className="btn-primary">
-            {saving ? 'Saving...' : 'Save'}
+          <button onClick={saveEntry} disabled={saving || isLocked(entryDate)} className="btn-primary px-8 shadow-lg">
+            {isLocked(entryDate) ? '🔒 Locked' : saving ? 'Saving...' : '💾 Save entry'}
           </button>
         </div>
       </div>
 
-      {existingEntries.length > 0 && (
+      {isLocked(entryDate) ? (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-800">
+          🔒 This entry is locked. Entries cannot be edited after 24 hours.
+        </div>
+      ) : existingEntries.length > 0 ? (
         <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4 text-sm text-green-800">
           ✅ Entry already saved for {entryDate}. You can update it below.
         </div>
-      )}
+      ) : null}
       {yesterdayEntries.length === 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 text-sm text-yellow-800">
           ⚠️ No entry for yesterday. Stock validation will not be available.
@@ -506,8 +518,8 @@ export default function DailyEntry() {
       </div>
 
       <div className="sticky bottom-4 flex justify-end mt-4">
-        <button onClick={saveEntry} disabled={saving} className="btn-primary px-8 shadow-lg">
-          {saving ? 'Saving...' : '💾 Save entry'}
+        <button onClick={saveEntry} disabled={saving || isLocked(entryDate)} className="btn-primary">
+          {isLocked(entryDate) ? '🔒 Locked' : saving ? 'Saving...' : 'Save'}
         </button>
       </div>
     </div>
