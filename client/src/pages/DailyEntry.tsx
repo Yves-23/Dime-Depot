@@ -35,6 +35,14 @@ interface OverstockWarning {
   piecesPerCasse: number
 }
 
+function isLocked(dateStr: string): boolean {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const entryDate = new Date(year, month - 1, day)
+  entryDate.setHours(23, 59, 59, 999)
+  const diffHours = (new Date().getTime() - entryDate.getTime()) / (1000 * 60 * 60)
+  return diffHours > 24
+}
+
 export default function DailyEntry() {
   const { business } = useAuth()
   const [rows, setRows] = useState<StockInputRow[]>([])
@@ -46,6 +54,8 @@ export default function DailyEntry() {
   const [existingEntries, setExistingEntries] = useState<StockEntry[]>([])
   const [receivedPopup, setReceivedPopup] = useState<ReceivedPopup | null>(null)
   const [overstockWarning, setOverstockWarning] = useState<OverstockWarning | null>(null)
+
+  const locked = isLocked(entryDate)
 
   useEffect(() => {
     if (business) loadData()
@@ -104,15 +114,8 @@ export default function DailyEntry() {
     }
   }
 
-  function isLocked(dateStr: string): boolean {
-    const [year, month, day] = dateStr.split('-').map(Number)
-    const entryDate = new Date(year, month - 1, day)
-    entryDate.setHours(23, 59, 59, 999)
-    const diffHours = (new Date().getTime() - entryDate.getTime()) / (1000 * 60 * 60)
-    return diffHours > 24
-  }
-
   function updateRow(index: number, field: keyof StockInputRow, value: string) {
+    if (locked) return
     const updated = [...rows]
     updated[index] = { ...updated[index], [field]: value }
     setRows(updated)
@@ -134,6 +137,7 @@ export default function DailyEntry() {
   }
 
   function openReceivedPopup(index: number) {
+    if (locked) return
     const row = rows[index]
     setReceivedPopup({
       productIndex: index,
@@ -162,7 +166,6 @@ export default function DailyEntry() {
   }
 
   function validateStock(): OverstockWarning | null {
-    // Only validate if we have yesterday's entries
     if (yesterdayEntries.length === 0) return null
 
     for (const row of rows) {
@@ -172,19 +175,14 @@ export default function DailyEntry() {
       const ppc = row.product.pieces_per_casse
 
       const yesterdayPieces = stockToPieces(
-        yesterdayEntry.casses,
-        yesterdayEntry.halves,
-        yesterdayEntry.pieces,
-        ppc
+        yesterdayEntry.casses, yesterdayEntry.halves, yesterdayEntry.pieces, ppc
       )
-
       const receivedPieces = stockToPieces(
         parseInt(row.supplier_casses) + parseInt(row.return_casses),
         parseInt(row.return_halves),
         parseInt(row.return_pieces),
         ppc
       )
-
       const todayPieces = stockToPieces(
         parseInt(row.casses) || 0,
         parseInt(row.halves) || 0,
@@ -205,12 +203,12 @@ export default function DailyEntry() {
         }
       }
     }
-
     return null
   }
 
   async function saveEntry() {
-    // Validate stock before saving
+    if (locked) return
+
     const warning = validateStock()
     if (warning) {
       setOverstockWarning(warning)
@@ -329,10 +327,7 @@ export default function DailyEntry() {
               Today's stock cannot be higher than yesterday's closing stock plus what you received today. If you received new stock, please tap the <span className="font-bold text-blue-600">+</span> button next to the product first.
             </p>
 
-            <button
-              onClick={() => setOverstockWarning(null)}
-              className="btn-primary w-full"
-            >
+            <button onClick={() => setOverstockWarning(null)} className="btn-primary w-full">
               Go back and fix it
             </button>
           </div>
@@ -349,21 +344,27 @@ export default function DailyEntry() {
             onChange={e => setEntryDate(e.target.value)}
             max={today()}
           />
-          <button onClick={saveEntry} disabled={saving || isLocked(entryDate)} className="btn-primary px-8 shadow-lg">
-            {isLocked(entryDate) ? '🔒 Locked' : saving ? 'Saving...' : '💾 Save entry'}
+          <button
+            onClick={saveEntry}
+            disabled={saving || locked}
+            className={`btn-primary ${locked ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            {locked ? '🔒 Locked' : saving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>
 
-      {isLocked(entryDate) ? (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-800">
-          🔒 This entry is locked. Entries cannot be edited after 24 hours.
+      {/* Status banners */}
+      {locked ? (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-800 flex items-center gap-2">
+          🔒 <span>This entry is <strong>locked</strong>. Entries cannot be edited after 24 hours.</span>
         </div>
       ) : existingEntries.length > 0 ? (
         <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4 text-sm text-green-800">
           ✅ Entry already saved for {entryDate}. You can update it below.
         </div>
       ) : null}
+
       {yesterdayEntries.length === 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 text-sm text-yellow-800">
           ⚠️ No entry for yesterday. Stock validation will not be available.
@@ -423,12 +424,13 @@ export default function DailyEntry() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {supplierGroups.map(({ supplier, rows: supplierRows }) => (
-          <div key={supplier.id} className="bg-white border border-gray-200 rounded-xl shadow-sm p-3">
+          <div key={supplier.id} className={`bg-white border rounded-xl shadow-sm p-3 ${locked ? 'border-gray-200 opacity-75' : 'border-gray-200'}`}>
             <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100">
               <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
                 <span className="text-white font-bold text-sm">{supplier.name.charAt(0)}</span>
               </div>
               <h2 className="font-semibold text-gray-800">{supplier.name}</h2>
+              {locked && <span className="ml-auto text-xs text-red-500 font-medium">🔒 Locked</span>}
             </div>
 
             <div className="grid grid-cols-10 gap-1 mb-1 px-1">
@@ -444,63 +446,95 @@ export default function DailyEntry() {
                 const globalIndex = rows.indexOf(row)
                 const hasReceived = hasReceivedStock(row)
 
-                // Highlight row red if overstock
                 const yesterdayEntry = yesterdayEntries.find(e => e.product_id === row.product.id)
                 const ppc = row.product.pieces_per_casse
-                const yesterdayPieces = yesterdayEntry ? stockToPieces(yesterdayEntry.casses, yesterdayEntry.halves, yesterdayEntry.pieces, ppc) : null
+                const yesterdayPieces = yesterdayEntry
+                  ? stockToPieces(yesterdayEntry.casses, yesterdayEntry.halves, yesterdayEntry.pieces, ppc)
+                  : null
                 const receivedPieces = stockToPieces(
                   parseInt(row.supplier_casses) + parseInt(row.return_casses),
                   parseInt(row.return_halves),
                   parseInt(row.return_pieces),
                   ppc
                 )
-                const todayPieces = stockToPieces(parseInt(row.casses) || 0, parseInt(row.halves) || 0, parseInt(row.pieces) || 0, ppc)
+                const todayPieces = stockToPieces(
+                  parseInt(row.casses) || 0,
+                  parseInt(row.halves) || 0,
+                  parseInt(row.pieces) || 0,
+                  ppc
+                )
                 const isOverstock = yesterdayPieces !== null && todayPieces > (yesterdayPieces + receivedPieces)
 
                 return (
                   <div key={row.product.id}>
                     <div className={`grid grid-cols-10 gap-1 items-center px-1 py-1 rounded-lg ${isOverstock ? 'bg-red-50' : ''}`}>
                       <div className="col-span-3">
-                        <p className={`text-xs font-semibold leading-tight truncate ${isOverstock ? 'text-red-700' : 'text-gray-800'}`}>{row.product.name}</p>
+                        <p className={`text-xs font-semibold leading-tight truncate ${isOverstock ? 'text-red-700' : 'text-gray-800'}`}>
+                          {row.product.name}
+                        </p>
                         <p className="text-xs text-gray-400 leading-tight">{getYesterdayStock(row.product.id)}</p>
                       </div>
                       <div className="col-span-2">
-                        <input type="number" min="0"
-                          className={`input text-center text-sm py-2 px-0.5 ${isOverstock ? 'border-red-400 bg-red-50' : ''}`}
+                        <input
+                          type="number" min="0"
+                          className={`input text-center text-sm py-2 px-0.5 ${isOverstock ? 'border-red-400 bg-red-50' : ''} ${locked ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                           placeholder="0"
-                          value={row.casses} onChange={e => updateRow(globalIndex, 'casses', e.target.value)} />
+                          value={row.casses}
+                          onChange={e => updateRow(globalIndex, 'casses', e.target.value)}
+                          disabled={locked}
+                        />
                       </div>
                       <div className="col-span-2">
                         <select
-                          className={`input text-center text-sm py-2 px-0.5 ${isOverstock ? 'border-red-400 bg-red-50' : ''}`}
-                          value={row.halves} onChange={e => updateRow(globalIndex, 'halves', e.target.value)}>
+                          className={`input text-center text-sm py-2 px-0.5 ${isOverstock ? 'border-red-400 bg-red-50' : ''} ${locked ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                          value={row.halves}
+                          onChange={e => updateRow(globalIndex, 'halves', e.target.value)}
+                          disabled={locked}
+                        >
                           <option value="0">0</option>
                           <option value="1">½</option>
                         </select>
                       </div>
                       <div className="col-span-2">
-                        <input type="number" min="0"
-                          className={`input text-center text-sm py-2 px-0.5 ${isOverstock ? 'border-red-400 bg-red-50' : ''}`}
+                        <input
+                          type="number" min="0"
+                          className={`input text-center text-sm py-2 px-0.5 ${isOverstock ? 'border-red-400 bg-red-50' : ''} ${locked ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                           placeholder="0"
-                          value={row.pieces} onChange={e => updateRow(globalIndex, 'pieces', e.target.value)} />
+                          value={row.pieces}
+                          onChange={e => updateRow(globalIndex, 'pieces', e.target.value)}
+                          disabled={locked}
+                        />
                       </div>
                       <div className="col-span-1 flex justify-center">
                         <button
                           onClick={() => openReceivedPopup(globalIndex)}
+                          disabled={locked}
                           className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors ${
-                            hasReceived ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-blue-100 hover:text-blue-600'
+                            locked
+                              ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                              : hasReceived
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-gray-100 text-gray-500 hover:bg-blue-100 hover:text-blue-600'
                           }`}
                         >+</button>
                       </div>
                     </div>
-                    {isOverstock && (
+                    {isOverstock && !locked && (
                       <div className="px-1 pb-1">
                         <span className="text-xs text-red-500 font-medium">
                           ⚠️ Too high! Use + to add received stock first
                         </span>
                       </div>
                     )}
-                    {hasReceived && !isOverstock && (
+                    {hasReceived && !isOverstock && !locked && (
+                      <div className="px-1 pb-1">
+                        <span className="text-xs text-blue-500 font-medium">
+                          {parseInt(row.supplier_casses) > 0 && `📦 +${row.supplier_casses} from supplier `}
+                          {(parseInt(row.return_casses) > 0 || parseInt(row.return_halves) > 0 || parseInt(row.return_pieces) > 0) && `↩️ return`}
+                        </span>
+                      </div>
+                    )}
+                    {hasReceived && locked && (
                       <div className="px-1 pb-1">
                         <span className="text-xs text-blue-500 font-medium">
                           {parseInt(row.supplier_casses) > 0 && `📦 +${row.supplier_casses} from supplier `}
@@ -517,11 +551,17 @@ export default function DailyEntry() {
         ))}
       </div>
 
-      <div className="sticky bottom-4 flex justify-end mt-4">
-        <button onClick={saveEntry} disabled={saving || isLocked(entryDate)} className="btn-primary">
-          {isLocked(entryDate) ? '🔒 Locked' : saving ? 'Saving...' : 'Save'}
-        </button>
-      </div>
+      {!locked && (
+        <div className="sticky bottom-4 flex justify-end mt-4">
+          <button
+            onClick={saveEntry}
+            disabled={saving}
+            className="btn-primary px-8 shadow-lg"
+          >
+            {saving ? 'Saving...' : '💾 Save entry'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
