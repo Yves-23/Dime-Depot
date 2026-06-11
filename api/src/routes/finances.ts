@@ -35,13 +35,29 @@ router.get('/:date', authenticate, async (req: AuthRequest, res: Response) => {
   }
 })
 
+// Get all unpaid debts
+router.get('/debts/unpaid', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await query(
+      `SELECT id, client_name, amount, entry_date, is_paid
+       FROM daily_debts
+       WHERE business_id = $1 AND is_paid = false
+       ORDER BY entry_date DESC, created_at ASC`,
+      [req.business!.id]
+    )
+    return res.json({ debts: result.rows })
+  } catch (error) {
+    console.error('Get unpaid debts error:', error)
+    return res.status(500).json({ error: 'Something went wrong' })
+  }
+})
+
 // Save finances for a date
 router.post('/:date', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { date } = req.params
     const { momo, cash, debts, expenses } = req.body
 
-    // Upsert momo and cash
     await query(
       `INSERT INTO daily_finances (business_id, entry_date, momo, cash)
        VALUES ($1, $2, $3, $4)
@@ -50,7 +66,6 @@ router.post('/:date', authenticate, async (req: AuthRequest, res: Response) => {
       [req.business!.id, date, parseFloat(momo) || 0, parseFloat(cash) || 0]
     )
 
-    // Delete old debts and re-insert
     await query(
       'DELETE FROM daily_debts WHERE business_id = $1 AND entry_date = $2',
       [req.business!.id, date]
@@ -67,7 +82,6 @@ router.post('/:date', authenticate, async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Delete old expenses and re-insert
     await query(
       'DELETE FROM daily_expenses WHERE business_id = $1 AND entry_date = $2',
       [req.business!.id, date]
@@ -84,7 +98,6 @@ router.post('/:date', authenticate, async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Return updated data
     const [financesData, debtsData, expensesData] = await Promise.all([
       query('SELECT * FROM daily_finances WHERE business_id = $1 AND entry_date = $2', [req.business!.id, date]),
       query('SELECT * FROM daily_debts WHERE business_id = $1 AND entry_date = $2 ORDER BY created_at ASC', [req.business!.id, date]),

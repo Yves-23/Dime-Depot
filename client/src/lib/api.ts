@@ -137,4 +137,5 @@ export const financesAPI = {
   save: (date: string, data: any) => request('POST', `/api/finances/${date}`, data),
   updateDebtPaid: (id: string, is_paid: boolean) =>
     request('PUT', `/api/finances/debts/${id}/paid`, { is_paid }),
+  getUnpaidDebts: () => request('GET', '/api/finances/debts/unpaid'),
 }
