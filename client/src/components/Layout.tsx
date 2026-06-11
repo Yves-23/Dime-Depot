@@ -69,16 +69,17 @@ const navItems = [
   },
 ]
 
-// Settings menu items (all except dashboard and daily-entry)
-const settingsItems = navItems.filter(
-  item => item.path !== '/dashboard' && item.path !== '/daily-entry'
-)
+// Bottom 4 nav paths
+const bottomPaths = ['/dashboard', '/daily-entry', '/reports']
+
+// Menu drawer items (everything except the 3 bottom ones)
+const menuItems = navItems.filter(item => !bottomPaths.includes(item.path))
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { business, signOut } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   function handleSignOut() {
     signOut()
@@ -86,7 +87,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     navigate('/login')
   }
 
-  const isSettingsActive = settingsItems.some(item => item.path === location.pathname)
+  const isMenuActive = menuItems.some(item => item.path === location.pathname)
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -151,11 +152,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* Settings drawer - mobile */}
-      {settingsOpen && (
+      {/* Menu drawer - mobile */}
+      {menuOpen && (
         <div
           className="md:hidden fixed inset-0 z-30 bg-black/40"
-          onClick={() => setSettingsOpen(false)}
+          onClick={() => setMenuOpen(false)}
         >
           <div
             className="absolute bottom-16 left-0 right-0 bg-white rounded-t-2xl shadow-2xl"
@@ -174,11 +175,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             {/* Nav items */}
             <div className="px-4 py-3 space-y-1">
-              {settingsItems.map(item => (
+              {menuItems.map(item => (
                 <Link
                   key={item.path}
                   to={item.path}
-                  onClick={() => setSettingsOpen(false)}
+                  onClick={() => setMenuOpen(false)}
                   className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors ${
                     location.pathname === item.path
                       ? 'bg-blue-50 text-blue-700'
@@ -192,9 +193,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Sign out */}
-            <div className="px-4 pb-5 pt-2 border-t border-gray-100 mx-4">
+            <div className="px-4 pb-5 pt-1 border-t border-gray-100 mx-4 mt-1">
               <button
-                onClick={() => { setSettingsOpen(false); handleSignOut() }}
+                onClick={() => { setMenuOpen(false); handleSignOut() }}
                 className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 w-full mt-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -208,8 +209,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Bottom nav - mobile only */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20 safe-area-pb">
-        <div className="grid grid-cols-3 h-16">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20">
+        <div className="grid grid-cols-4 h-16">
 
           {/* Home */}
           <Link
@@ -237,11 +238,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-[10px] font-medium">Daily Entry</span>
           </Link>
 
-          {/* Settings */}
-          <button
-            onClick={() => setSettingsOpen(!settingsOpen)}
+          {/* Reports */}
+          <Link
+            to="/reports"
             className={`flex flex-col items-center justify-center gap-1 transition-colors ${
-              isSettingsActive || settingsOpen ? 'text-blue-600' : 'text-gray-400'
+              location.pathname === '/reports' ? 'text-blue-600' : 'text-gray-400'
+            }`}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <span className="text-[10px] font-medium">Reports</span>
+          </Link>
+
+          {/* Menu */}
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className={`flex flex-col items-center justify-center gap-1 transition-colors ${
+              isMenuActive || menuOpen ? 'text-blue-600' : 'text-gray-400'
             }`}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
