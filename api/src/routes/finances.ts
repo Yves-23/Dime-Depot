@@ -39,7 +39,7 @@ router.get('/:date', authenticate, async (req: AuthRequest, res: Response) => {
 router.get('/debts/unpaid', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const result = await query(
-      `SELECT id, client_name, amount, entry_date, is_paid
+      `SELECT id, client_name, amount, amount_paid, entry_date, is_paid
        FROM daily_debts
        WHERE business_id = $1 AND is_paid = false
        ORDER BY entry_date DESC, created_at ASC`,
