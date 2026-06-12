@@ -135,7 +135,7 @@ export const stockAPI = {
 export const financesAPI = {
   get: (date: string) => request('GET', `/api/finances/${date}`),
   save: (date: string, data: any) => request('POST', `/api/finances/${date}`, data),
-  updateDebtPaid: (id: string, is_paid: boolean) =>
-    request('PUT', `/api/finances/debts/${id}/paid`, { is_paid }),
+  updateDebtPaid: (id: string, is_paid: boolean) => request('PUT', `/api/finances/debts/${id}/paid`, { is_paid }),
   getUnpaidDebts: () => request('GET', '/api/finances/debts/unpaid'),
+  partialPayDebt: (id: string, amount: number) => request('PATCH', `/api/finances/debts/${id}/partial-pay`, { amount }),
 }

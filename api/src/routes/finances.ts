@@ -140,4 +140,49 @@ router.put('/debts/:id/paid', authenticate, async (req: AuthRequest, res: Respon
   }
 })
 
+// Partial payment on a debt
+router.patch('/debts/:id/partial-pay', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params
+    const { amount } = req.body
+
+    if (!amount || parseFloat(amount) <= 0) {
+      return res.status(400).json({ error: 'Payment amount must be greater than 0' })
+    }
+
+    // Get current debt
+    const current = await query(
+      'SELECT * FROM daily_debts WHERE id = $1 AND business_id = $2',
+      [id, req.business!.id]
+    )
+
+    if (current.rows.length === 0) {
+      return res.status(404).json({ error: 'Debt not found' })
+    }
+
+    const debt = current.rows[0]
+    const totalAmount = parseFloat(debt.amount)
+    const alreadyPaid = parseFloat(debt.amount_paid || 0)
+    const newPayment = parseFloat(amount)
+    const newAmountPaid = alreadyPaid + newPayment
+
+    // Cap at total amount
+    const finalAmountPaid = Math.min(newAmountPaid, totalAmount)
+    const isPaid = finalAmountPaid >= totalAmount
+
+    const result = await query(
+      `UPDATE daily_debts 
+       SET amount_paid = $1, is_paid = $2
+       WHERE id = $3 AND business_id = $4
+       RETURNING *`,
+      [finalAmountPaid, isPaid, id, req.business!.id]
+    )
+
+    return res.json({ debt: result.rows[0] })
+  } catch (error) {
+    console.error('Partial pay error:', error)
+    return res.status(500).json({ error: 'Something went wrong' })
+  }
+})
+
 export default router

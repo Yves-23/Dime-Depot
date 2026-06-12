@@ -106,9 +106,15 @@ export async function createTables() {
       entry_date DATE NOT NULL,
       client_name TEXT NOT NULL,
       amount NUMERIC NOT NULL,
+      amount_paid NUMERIC DEFAULT 0,
       is_paid BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
+  `)
+
+  // Migrate: add amount_paid to existing daily_debts table if not exists
+  await query(`
+    ALTER TABLE daily_debts ADD COLUMN IF NOT EXISTS amount_paid NUMERIC DEFAULT 0
   `)
 
   // Daily expenses table
