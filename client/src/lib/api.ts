@@ -65,19 +65,34 @@ export const authAPI = {
   register: (data: {
     owner_name: string
     business_name: string
-    email: string
-    password: string
-    phone?: string
+    phone: string
+    pin: string
+    security_question: string
+    security_answer: string
+    email?: string
     location?: string
+    country: string
   }) => request('POST', '/api/auth/register', data, false),
 
-  login: (email: string, password: string) =>
-    request('POST', '/api/auth/login', { email, password }, false),
+  login: (data: { phone?: string; pin?: string; email?: string; password?: string }) =>
+    request('POST', '/api/auth/login', data, false),
 
   me: () => request('GET', '/api/auth/me'),
 
   changePassword: (current_password: string, new_password: string) =>
     request('PUT', '/api/auth/change-password', { current_password, new_password }),
+
+  changePin: (current_pin: string, new_pin: string) =>
+    request('PUT', '/api/auth/change-pin', { current_pin, new_pin }),
+
+  resetPinQuestion: (phone: string) =>
+    request('POST', '/api/auth/reset-pin/question', { phone }, false),
+
+  resetPinVerify: (data: { phone: string; security_answer?: string; email?: string }) =>
+    request('POST', '/api/auth/reset-pin/verify', data, false),
+
+  resetPinSet: (reset_token: string, new_pin: string) =>
+    request('POST', '/api/auth/reset-pin/set', { reset_token, new_pin }, false),
 }
 
 // Admin API

@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ResetPin from './pages/ResetPin'
 import Pending from './pages/Pending'
 import Dashboard from './pages/Dashboard'
 import DailyEntry from './pages/DailyEntry'
@@ -91,6 +92,7 @@ function AppRoutes() {
       {/* Public routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+      <Route path="/reset-pin" element={<PublicRoute><ResetPin /></PublicRoute>} />
       <Route path="/pending" element={<Pending />} />
 
       {/* Admin routes — purple theme */}

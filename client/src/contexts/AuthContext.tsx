@@ -5,41 +5,36 @@ import type { Business } from '../lib/types'
 interface AuthContextType {
   business: Business | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<any>
+  signIn: (data: { phone?: string; pin?: string; email?: string; password?: string }) => Promise<any>
   signOut: () => void
   refreshBusiness: () => Promise<void>
+  setBusinessState: (business: Business) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [business, setBusiness2] = useState<Business | null>(null)
+  // Initialize state directly from storage — no need to set it in effect
+  const [business, setBusiness2] = useState<Business | null>(() => getStoredBusiness())
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // On app load check if we have a stored business
-    const stored = getStoredBusiness()
-    if (stored) {
-      setBusiness2(stored)
-      // Verify token is still valid by calling /me
-      authAPI.me()
-        .then(data => {
-          setBusiness2(data.business)
-          setBusiness(data.business)
-        })
-        .catch(() => {
-          // Token expired — clear everything
-          removeToken()
-          setBusiness2(null)
-        })
-        .finally(() => setLoading(false))
-    } else {
-      setLoading(false)
-    }
+    // Verify token is still valid by calling /me
+    authAPI.me()
+      .then(data => {
+        setBusiness2(data.business)
+        setBusiness(data.business)
+      })
+      .catch(() => {
+        // Token expired — clear everything
+        removeToken()
+        setBusiness2(null)
+      })
+      .finally(() => setLoading(false))
   }, [])
 
-  async function signIn(email: string, password: string) {
-    const data = await authAPI.login(email, password)
+  async function signIn(loginData: { phone?: string; pin?: string; email?: string; password?: string }) {
+    const data = await authAPI.login(loginData)
     setToken(data.token)
     setBusiness(data.business)
     setBusiness2(data.business)
@@ -49,6 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function signOut() {
     removeToken()
     setBusiness2(null)
+  }
+
+  function setBusinessState(b: Business) {
+    setBusiness2(b)
+    setBusiness(b)
   }
 
   async function refreshBusiness() {
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ business, loading, signIn, signOut, refreshBusiness }}>
+    <AuthContext.Provider value={{ business, loading, signIn, signOut, refreshBusiness, setBusinessState }}>
       {children}
     </AuthContext.Provider>
   )
