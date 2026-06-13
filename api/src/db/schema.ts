@@ -8,16 +8,32 @@ export async function createTables() {
       id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
       owner_name TEXT NOT NULL,
       business_name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
+      email TEXT UNIQUE,
       phone TEXT,
       location TEXT,
-      password_hash TEXT NOT NULL,
+      country TEXT DEFAULT 'Rwanda',
+      currency TEXT DEFAULT 'RWF',
+      password_hash TEXT,
+      pin_hash TEXT,
+      security_question TEXT,
+      security_answer_hash TEXT,
       is_active BOOLEAN DEFAULT FALSE,
       is_admin BOOLEAN DEFAULT FALSE,
       payment_date TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `)
+
+  // Migrate existing businesses table — add new columns if not exist
+  await query(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS pin_hash TEXT`)
+  await query(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS security_question TEXT`)
+  await query(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS security_answer_hash TEXT`)
+  await query(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS country TEXT DEFAULT 'Rwanda'`)
+  await query(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'RWF'`)
+
+  // Make email and password_hash optional for existing accounts
+  await query(`ALTER TABLE businesses ALTER COLUMN email DROP NOT NULL`)
+  await query(`ALTER TABLE businesses ALTER COLUMN password_hash DROP NOT NULL`)
 
   // Suppliers table
   await query(`
@@ -113,9 +129,7 @@ export async function createTables() {
   `)
 
   // Migrate: add amount_paid to existing daily_debts table if not exists
-  await query(`
-    ALTER TABLE daily_debts ADD COLUMN IF NOT EXISTS amount_paid NUMERIC DEFAULT 0
-  `)
+  await query(`ALTER TABLE daily_debts ADD COLUMN IF NOT EXISTS amount_paid NUMERIC DEFAULT 0`)
 
   // Daily expenses table
   await query(`
