@@ -64,7 +64,7 @@ export default function AdminBusinesses() {
     const matchesSearch =
       b.business_name.toLowerCase().includes(search.toLowerCase()) ||
       b.owner_name.toLowerCase().includes(search.toLowerCase()) ||
-      b.email.toLowerCase().includes(search.toLowerCase())
+      (b.email?.toLowerCase() || '').includes(search.toLowerCase())
     const matchesFilter =
       filter === 'all' ||
       (filter === 'active' ? b.is_active : !b.is_active)
