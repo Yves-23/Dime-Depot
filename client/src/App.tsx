@@ -108,7 +108,7 @@ function AppRoutes() {
       <Route path="/prices" element={<ProtectedRoute><Prices /></ProtectedRoute>} />
       <Route path="/profit" element={<ProtectedRoute><Profit /></ProtectedRoute>} />
       <Route path="/unpaid-debts" element={<ProtectedRoute><UnpaidDebts /></ProtectedRoute>} />
-    
+      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       {/* Default redirects */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
