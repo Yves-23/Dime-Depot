@@ -79,10 +79,10 @@ const navItems = [
   },
 ]
 
-// Bottom nav paths
+// Bottom nav paths — these 3 show in bottom bar
 const bottomPaths = ['/dashboard', '/daily-entry', '/reports']
 
-// Menu drawer items (everything except the 3 bottom ones)
+// Menu drawer items — everything NOT in bottom bar
 const menuItems = navItems.filter(item => !bottomPaths.includes(item.path))
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -133,7 +133,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
-        {/* Sign out at bottom of sidebar */}
         <div className="px-4 py-4 border-t border-gray-200">
           <button
             onClick={handleSignOut}
@@ -173,18 +172,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             className="absolute bottom-16 left-0 right-0 bg-white rounded-t-2xl shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
-            {/* Handle bar */}
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 bg-gray-300 rounded-full" />
             </div>
 
-            {/* Business info */}
             <div className="px-5 py-3 border-b border-gray-100">
               <p className="text-sm font-semibold text-gray-900">{business?.business_name}</p>
               <p className="text-xs text-gray-400">{business?.owner_name}</p>
             </div>
 
-            {/* Nav items including Settings */}
             <div className="px-4 py-3 space-y-1">
               {menuItems.map(item => (
                 <Link
@@ -203,7 +199,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               ))}
             </div>
 
-            {/* Sign out inside settings drawer */}
             <div className="px-4 pb-5 pt-1 border-t border-gray-100 mx-4 mt-1">
               <button
                 onClick={() => { setMenuOpen(false); handleSignOut() }}
@@ -223,7 +218,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20">
         <div className="grid grid-cols-4 h-16">
 
-          {/* Home */}
           <Link
             to="/dashboard"
             className={`flex flex-col items-center justify-center gap-1 transition-colors ${
@@ -236,7 +230,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-[10px] font-medium">Home</span>
           </Link>
 
-          {/* Daily Entry */}
           <Link
             to="/daily-entry"
             className={`flex flex-col items-center justify-center gap-1 transition-colors ${
@@ -249,7 +242,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-[10px] font-medium">Daily Entry</span>
           </Link>
 
-          {/* Reports */}
           <Link
             to="/reports"
             className={`flex flex-col items-center justify-center gap-1 transition-colors ${
@@ -262,7 +254,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-[10px] font-medium">Reports</span>
           </Link>
 
-          {/* Menu */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className={`flex flex-col items-center justify-center gap-1 transition-colors ${
