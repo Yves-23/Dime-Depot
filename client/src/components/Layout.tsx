@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 
+// Layout v2 - with Settings
 const navItems = [
   {
     path: '/dashboard',
