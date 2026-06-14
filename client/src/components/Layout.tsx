@@ -67,9 +67,19 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    path: '/settings',
+    label: 'Settings',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
 ]
 
-// Bottom 4 nav paths
+// Bottom nav paths
 const bottomPaths = ['/dashboard', '/daily-entry', '/reports']
 
 // Menu drawer items (everything except the 3 bottom ones)
@@ -106,7 +116,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <p className="text-xs text-gray-500 truncate">{business?.owner_name}</p>
         </div>
 
-        <nav className="flex-1 px-4 py-4 space-y-1">
+        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
           {navItems.map(item => (
             <Link
               key={item.path}
@@ -123,6 +133,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
+        {/* Sign out at bottom of sidebar */}
         <div className="px-4 py-4 border-t border-gray-200">
           <button
             onClick={handleSignOut}
@@ -173,7 +184,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <p className="text-xs text-gray-400">{business?.owner_name}</p>
             </div>
 
-            {/* Nav items */}
+            {/* Nav items including Settings */}
             <div className="px-4 py-3 space-y-1">
               {menuItems.map(item => (
                 <Link
@@ -192,7 +203,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               ))}
             </div>
 
-            {/* Sign out */}
+            {/* Sign out inside settings drawer */}
             <div className="px-4 pb-5 pt-1 border-t border-gray-100 mx-4 mt-1">
               <button
                 onClick={() => { setMenuOpen(false); handleSignOut() }}

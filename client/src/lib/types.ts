@@ -2,9 +2,14 @@ export interface Business {
   id: string
   owner_name: string
   business_name: string
-  email: string
+  email: string | null
   phone: string | null
   location: string | null
+  country: string | null
+  currency: string | null
+  security_question: string | null
+  has_pin: boolean
+  has_email: boolean
   is_active: boolean
   is_admin: boolean
   payment_date: string | null
