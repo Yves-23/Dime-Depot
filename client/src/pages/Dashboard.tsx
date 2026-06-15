@@ -17,6 +17,13 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [todayDate] = useState(today())
   const [hasEntryToday, setHasEntryToday] = useState(false)
+  // Derived UI state for finances section
+  const hasData = !!summary
+  const hasFinances = hasData
+  // Financial placeholders (filled from summary when available)
+  const totalRevenue = summary?.totalRevenue ?? 0
+  const totalCollected = 0
+  const difference = 0
 
   useEffect(() => {
     if (business) loadSummary()
@@ -25,6 +32,8 @@ export default function Dashboard() {
   async function loadSummary() {
     if (!business) return
     setLoading(true)
+
+    
 
     try {
       const [
@@ -131,18 +140,24 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Today's summary */}
-      {summary && (
-        <div className="card mb-6 bg-gradient-to-br from-blue-600 to-blue-700 text-white">
-          <p className="text-blue-100 text-xs font-semibold uppercase tracking-wide mb-3">Today's Revenue</p>
-          <p className="text-3xl font-bold mb-3">{formatRWF(summary.totalRevenue)}</p>
-          <div className="flex flex-wrap gap-3">
-            {summary.supplierRevenues.map(({ supplier, revenue }) => (
-              <div key={supplier.id} className="bg-white/15 rounded-lg px-3 py-1.5">
-                <p className="text-xs text-blue-100">{supplier.name}</p>
-                <p className="text-sm font-semibold">{formatRWF(revenue)}</p>
+      {/* Balance result */}
+      {hasFinances && hasData && (
+        <div className={`card mb-6 border-2 ${difference === 0 ? 'border-green-400 bg-green-50' : difference > 0 ? 'border-blue-400 bg-blue-50' : 'border-red-400 bg-red-50'}`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-gray-500">
+                {difference === 0 ? 'Net' : difference > 0 ? 'Surplus' : 'Deficit'}
+              </p>
+              <p className={`text-2xl font-bold ${difference === 0 ? 'text-green-700' : difference > 0 ? 'text-blue-700' : 'text-red-700'}`}>
+                {difference === 0 ? 'Balanced — 0 RWF' : difference > 0 ? `+${formatRWF(difference)}` : `-${formatRWF(Math.abs(difference))}`}
+              </p>
+              <div>
+                <p className="text-xs text-gray-500 mt-1">Collected money: {formatRWF(totalCollected)}</p>
+                <p className="text-xs text-gray-500 mt-0.5">Revenue: {formatRWF(totalRevenue)}</p>
+                <p className="text-xs text-gray-500 mt-0.5">Products sold: {summary?.totalProductsSold}</p>
               </div>
-            ))}
+            </div>
+            <div className="text-4xl">{difference === 0 ? '⚖️' : difference > 0 ? '📈' : '📉'}</div>
           </div>
         </div>
       )}
