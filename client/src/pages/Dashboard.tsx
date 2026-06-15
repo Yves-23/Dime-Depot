@@ -17,13 +17,25 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [todayDate] = useState(today())
   const [hasEntryToday, setHasEntryToday] = useState(false)
+  const [hasData, setHasData] = useState(false)
+  const [momo] = useState('')
+  const [cash] = useState('')
+  const [debts] = useState<{ amount: string }[]>([])
+  const [expenses] = useState<{ amount: string }[]>([])
   // Derived UI state for finances section
-  const hasData = !!summary
-  const hasFinances = hasData
-  // Financial placeholders (filled from summary when available)
-  const totalRevenue = summary?.totalRevenue ?? 0
-  const totalCollected = 0
-  const difference = 0
+  
+  const totalRevenue = summary?.totalRevenue || 0
+  const totalMomo = parseFloat(parseNumberInput(momo)) || 0
+  const totalCash = parseFloat(parseNumberInput(cash)) || 0
+  const totalDebts = debts.reduce((sum, d) => sum + (parseFloat(parseNumberInput(d.amount)) || 0), 0)
+  const totalExpenses = expenses.reduce((sum, e) => sum + (parseFloat(parseNumberInput(e.amount)) || 0), 0)
+  const totalCollected = totalMomo + totalCash + totalDebts + totalExpenses
+  const difference = totalRevenue - totalCollected
+  const hasFinances = totalMomo > 0 || totalCash > 0 || totalDebts > 0 || totalExpenses > 0
+
+  function parseNumberInput(value: string): string {
+    return value.replace(/,/g, '')
+  }
 
   useEffect(() => {
     if (business) loadSummary()
