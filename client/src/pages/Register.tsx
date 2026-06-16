@@ -211,13 +211,13 @@ export default function Register() {
               {step === 1 && (
                 <div className="space-y-4">
                   <div>
-                    <label className="label">Your full name</label>
-                    <input type="text" className="input w-full" placeholder="e.g. Umutesi Clemence"
+                    <label className="label">Name of the owner</label>
+                    <input type="text" className="input w-full" placeholder="Enter your full name"
                       value={ownerName} onChange={e => setOwnerName(e.target.value)} autoFocus />
                   </div>
                   <div>
-                    <label className="label">Business name</label>
-                    <input type="text" className="input w-full" placeholder="e.g. National Depot"
+                    <label className="label">Business/Company name</label>
+                    <input type="text" className="input w-full" placeholder="Enter your business/company name"
                       value={businessName} onChange={e => setBusinessName(e.target.value)} />
                   </div>
                 </div>
