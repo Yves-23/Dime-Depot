@@ -3,25 +3,34 @@ import { useNavigate, Link } from 'react-router-dom'
 import { authAPI } from '../lib/api'
 import toast from 'react-hot-toast'
 
+const COUNTRIES = [
+  { name: 'Rwanda', flag: '🇷🇼', code: '+250' },
+  { name: 'Uganda', flag: '🇺🇬', code: '+256' },
+  { name: 'Kenya', flag: '🇰🇪', code: '+254' },
+  { name: 'Tanzania', flag: '🇹🇿', code: '+255' },
+  { name: 'Burundi', flag: '🇧🇮', code: '+257' },
+  { name: 'DRC', flag: '🇨🇩', code: '+243' },
+  { name: 'Nigeria', flag: '🇳🇬', code: '+234' },
+  { name: 'Ghana', flag: '🇬🇭', code: '+233' },
+  { name: 'South Africa', flag: '🇿🇦', code: '+27' },
+  { name: 'Ethiopia', flag: '🇪🇹', code: '+251' },
+]
+
 type Step = 'phone' | 'choose' | 'answer' | 'email' | 'new_pin' | 'done'
 
 function PinKeypad({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫']
-
   function press(key: string) {
     if (key === '⌫') onChange(value.slice(0, -1))
     else if (key === '') return
     else if (value.length < 4) onChange(value + key)
   }
-
   return (
     <div>
       <div className="flex justify-center gap-4 mb-6">
         {[0,1,2,3].map(i => (
           <div key={i} className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center text-3xl transition-all ${
-            value[i] !== undefined
-              ? 'border-blue-600 bg-blue-600 text-white'
-              : 'border-gray-200 bg-gray-50 text-gray-200'
+            value[i] !== undefined ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-gray-50 text-gray-200'
           }`}>
             {value[i] ? '●' : '○'}
           </div>
@@ -29,18 +38,12 @@ function PinKeypad({ value, onChange }: { value: string; onChange: (v: string) =
       </div>
       <div className="grid grid-cols-3 gap-2">
         {keys.map((key, i) => (
-          <button
-            key={i}
-            onClick={() => press(key)}
-            disabled={key === ''}
+          <button key={i} onClick={() => press(key)} disabled={key === ''}
             className={`h-14 rounded-xl text-xl font-semibold transition-all ${
-              key === ''
-                ? 'invisible'
-                : key === '⌫'
-                ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95'
-                : 'bg-gray-50 text-gray-900 hover:bg-gray-100 active:scale-95 border border-gray-200'
-            }`}
-          >
+              key === '' ? 'invisible'
+              : key === '⌫' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95'
+              : 'bg-gray-50 text-gray-900 hover:bg-gray-100 active:scale-95 border border-gray-200'
+            }`}>
             {key}
           </button>
         ))}
@@ -54,7 +57,8 @@ export default function ResetPin() {
   const [step, setStep] = useState<Step>('phone')
   const [loading, setLoading] = useState(false)
 
-  const [phone, setPhone] = useState('')
+  const [phoneCode, setPhoneCode] = useState('+250')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [securityQuestion, setSecurityQuestion] = useState('')
   const [hasEmail, setHasEmail] = useState(false)
   const [securityAnswer, setSecurityAnswer] = useState('')
@@ -63,11 +67,15 @@ export default function ResetPin() {
   const [newPin, setNewPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
 
+  function fullPhone() {
+    return `${phoneCode}${phoneNumber.replace(/\s/g, '')}`
+  }
+
   async function handlePhoneSubmit() {
-    if (!phone.trim()) { toast.error('Please enter your phone number'); return }
+    if (!phoneNumber.trim()) { toast.error('Please enter your phone number'); return }
     setLoading(true)
     try {
-      const data = await authAPI.resetPinQuestion(phone.trim())
+      const data = await authAPI.resetPinQuestion(fullPhone())
       setSecurityQuestion(data.security_question)
       setHasEmail(data.has_email)
       setStep('choose')
@@ -82,7 +90,7 @@ export default function ResetPin() {
     setLoading(true)
     try {
       const data = await authAPI.resetPinVerify({
-        phone: phone.trim(),
+        phone: fullPhone(),
         security_answer: method === 'answer' ? securityAnswer.trim() : undefined,
         email: method === 'email' ? email.trim() : undefined,
       })
@@ -143,18 +151,33 @@ export default function ResetPin() {
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">Forgot your PIN?</h2>
                 <p className="text-gray-400 text-sm mb-6">Enter the phone number linked to your account.</p>
-                <div>
-                  <label className="label">Phone number</label>
+                <label className="label">Phone number</label>
+                <div className="flex gap-2 mb-6">
+                  <div className="relative">
+                    <select
+                      className="input appearance-none pr-7 pl-3 cursor-pointer font-medium text-gray-800 bg-gray-50"
+                      value={phoneCode}
+                      onChange={e => setPhoneCode(e.target.value)}
+                      style={{ minWidth: '95px' }}
+                    >
+                      {COUNTRIES.map(c => (
+                        <option key={c.name} value={c.code}>{c.flag} {c.code}</option>
+                      ))}
+                    </select>
+                    <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
                   <input
                     type="tel"
-                    className="input w-full"
-                    placeholder="+250 7XX XXX XXX"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
+                    className="input flex-1"
+                    placeholder="7XX XXX XXX"
+                    value={phoneNumber}
+                    onChange={e => setPhoneNumber(e.target.value)}
                     autoFocus
                   />
                 </div>
-                <button onClick={handlePhoneSubmit} disabled={loading} className="btn-primary w-full py-3 mt-6">
+                <button onClick={handlePhoneSubmit} disabled={loading} className="btn-primary w-full py-3">
                   {loading ? 'Looking up...' : 'Continue'}
                 </button>
               </div>
@@ -166,10 +189,8 @@ export default function ResetPin() {
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">How do you want to verify?</h2>
                 <p className="text-gray-400 text-sm mb-6">Choose one of the options below to confirm your identity.</p>
                 <div className="space-y-3">
-                  <button
-                    onClick={() => setStep('answer')}
-                    className="w-full text-left p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group"
-                  >
+                  <button onClick={() => setStep('answer')}
+                    className="w-full text-left p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 bg-orange-100 rounded-xl flex items-center justify-center shrink-0">
                         <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -183,10 +204,8 @@ export default function ResetPin() {
                     </div>
                   </button>
                   {hasEmail && (
-                    <button
-                      onClick={() => setStep('email')}
-                      className="w-full text-left p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all"
-                    >
+                    <button onClick={() => setStep('email')}
+                      className="w-full text-left p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center shrink-0">
                           <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -212,11 +231,9 @@ export default function ResetPin() {
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5">
                   <p className="text-blue-800 text-sm font-medium">{securityQuestion}</p>
                 </div>
-                <div>
-                  <label className="label">Your answer</label>
-                  <input type="text" className="input w-full" placeholder="Enter your answer"
-                    value={securityAnswer} onChange={e => setSecurityAnswer(e.target.value)} autoFocus />
-                </div>
+                <label className="label">Your answer</label>
+                <input type="text" className="input w-full" placeholder="Enter your answer"
+                  value={securityAnswer} onChange={e => setSecurityAnswer(e.target.value)} autoFocus />
                 <button onClick={() => handleVerify('answer')} disabled={loading} className="btn-primary w-full py-3 mt-6">
                   {loading ? 'Verifying...' : 'Continue'}
                 </button>
@@ -228,11 +245,9 @@ export default function ResetPin() {
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">Verify with email</h2>
                 <p className="text-gray-400 text-sm mb-6">Enter the email address linked to your account.</p>
-                <div>
-                  <label className="label">Email address</label>
-                  <input type="email" className="input w-full" placeholder="your@email.com"
-                    value={email} onChange={e => setEmail(e.target.value)} autoFocus />
-                </div>
+                <label className="label">Email address</label>
+                <input type="email" className="input w-full" placeholder="your@email.com"
+                  value={email} onChange={e => setEmail(e.target.value)} autoFocus />
                 <button onClick={() => handleVerify('email')} disabled={loading} className="btn-primary w-full py-3 mt-6">
                   {loading ? 'Verifying...' : 'Continue'}
                 </button>
@@ -244,9 +259,8 @@ export default function ResetPin() {
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">Set your new PIN</h2>
                 <p className="text-gray-400 text-sm mb-6">
-                  {confirmPin.length === 0 && newPin.length < 4 ? 'Enter a new 4-digit PIN.' : newPin.length === 4 && confirmPin.length === 0 ? 'Now confirm your new PIN.' : ''}
+                  {newPin.length < 4 ? 'Enter a new 4-digit PIN.' : 'Now confirm your new PIN.'}
                 </p>
-
                 {newPin.length < 4 ? (
                   <div>
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center mb-4">New PIN</p>
@@ -257,7 +271,7 @@ export default function ResetPin() {
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center mb-4">Confirm PIN</p>
                     <PinKeypad value={confirmPin} onChange={setConfirmPin} />
                     {confirmPin.length === 4 && confirmPin !== newPin && (
-                      <p className="text-red-500 text-sm text-center mt-3">PINs do not match — try again</p>
+                      <p className="text-red-500 text-sm text-center mt-3">PINs do not match</p>
                     )}
                     {confirmPin.length === 4 && confirmPin === newPin && (
                       <p className="text-green-600 text-sm text-center mt-3">✓ PINs match!</p>
@@ -287,9 +301,7 @@ export default function ResetPin() {
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">PIN reset!</h2>
                 <p className="text-gray-400 text-sm mb-8">You can now sign in with your new PIN.</p>
-                <button onClick={() => navigate('/login')} className="btn-primary w-full py-3">
-                  Go to sign in
-                </button>
+                <button onClick={() => navigate('/login')} className="btn-primary w-full py-3">Go to sign in</button>
               </div>
             )}
 

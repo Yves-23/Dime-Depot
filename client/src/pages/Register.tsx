@@ -4,16 +4,16 @@ import { authAPI, setToken, setBusiness } from '../lib/api'
 import toast from 'react-hot-toast'
 
 const COUNTRIES = [
-  { name: 'Rwanda', flag: '🇷🇼', phone: '+250' },
-  { name: 'Uganda', flag: '🇺🇬', phone: '+256' },
-  { name: 'Kenya', flag: '🇰🇪', phone: '+254' },
-  { name: 'Tanzania', flag: '🇹🇿', phone: '+255' },
-  { name: 'Burundi', flag: '🇧🇮', phone: '+257' },
-  { name: 'DRC', flag: '🇨🇩', phone: '+243' },
-  { name: 'Nigeria', flag: '🇳🇬', phone: '+234' },
-  { name: 'Ghana', flag: '🇬🇭', phone: '+233' },
-  { name: 'South Africa', flag: '🇿🇦', phone: '+27' },
-  { name: 'Ethiopia', flag: '🇪🇹', phone: '+251' },
+  { name: 'Rwanda', flag: '🇷🇼', code: '+250' },
+  { name: 'Uganda', flag: '🇺🇬', code: '+256' },
+  { name: 'Kenya', flag: '🇰🇪', code: '+254' },
+  { name: 'Tanzania', flag: '🇹🇿', code: '+255' },
+  { name: 'Burundi', flag: '🇧🇮', code: '+257' },
+  { name: 'DRC', flag: '🇨🇩', code: '+243' },
+  { name: 'Nigeria', flag: '🇳🇬', code: '+234' },
+  { name: 'Ghana', flag: '🇬🇭', code: '+233' },
+  { name: 'South Africa', flag: '🇿🇦', code: '+27' },
+  { name: 'Ethiopia', flag: '🇪🇹', code: '+251' },
 ]
 
 const SECURITY_QUESTIONS = [
@@ -24,27 +24,23 @@ const SECURITY_QUESTIONS = [
   "What is your mother's first name?",
 ]
 
-// Steps: 1=Name+Business, 2=Phone, 3=Country, 4=PIN, 5=ConfirmPIN, 6=SecurityQ, 7=Email
+// Steps: 1=Name+Business, 2=Country, 3=Phone, 4=PIN, 5=ConfirmPIN, 6=SecurityQ, 7=Email, 8=Done
 type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 const TOTAL_STEPS = 7
 
 function PinKeypad({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫']
-
   function press(key: string) {
     if (key === '⌫') onChange(value.slice(0, -1))
     else if (key === '') return
     else if (value.length < 4) onChange(value + key)
   }
-
   return (
     <div>
       <div className="flex justify-center gap-4 mb-6">
         {[0,1,2,3].map(i => (
           <div key={i} className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center text-3xl transition-all ${
-            value[i] !== undefined
-              ? 'border-blue-600 bg-blue-600 text-white'
-              : 'border-gray-200 bg-gray-50 text-gray-200'
+            value[i] !== undefined ? 'border-blue-600 bg-blue-600 text-white' : 'border-gray-200 bg-gray-50 text-gray-200'
           }`}>
             {value[i] ? '●' : '○'}
           </div>
@@ -52,18 +48,12 @@ function PinKeypad({ value, onChange }: { value: string; onChange: (v: string) =
       </div>
       <div className="grid grid-cols-3 gap-2">
         {keys.map((key, i) => (
-          <button
-            key={i}
-            onClick={() => press(key)}
-            disabled={key === ''}
+          <button key={i} onClick={() => press(key)} disabled={key === ''}
             className={`h-14 rounded-xl text-xl font-semibold transition-all ${
-              key === ''
-                ? 'invisible'
-                : key === '⌫'
-                ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95'
-                : 'bg-gray-50 text-gray-900 hover:bg-gray-100 active:scale-95 border border-gray-200'
-            }`}
-          >
+              key === '' ? 'invisible'
+              : key === '⌫' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-95'
+              : 'bg-gray-50 text-gray-900 hover:bg-gray-100 active:scale-95 border border-gray-200'
+            }`}>
             {key}
           </button>
         ))}
@@ -79,13 +69,23 @@ export default function Register() {
 
   const [ownerName, setOwnerName] = useState('')
   const [businessName, setBusinessName] = useState('')
-  const [phone, setPhone] = useState('')
   const [country, setCountry] = useState<typeof COUNTRIES[0] | null>(null)
+  const [phoneCode, setPhoneCode] = useState('+250')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [pin, setPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
   const [securityQuestion, setSecurityQuestion] = useState('')
   const [securityAnswer, setSecurityAnswer] = useState('')
   const [email, setEmail] = useState('')
+
+  function selectCountry(c: typeof COUNTRIES[0]) {
+    setCountry(c)
+    setPhoneCode(c.code)
+  }
+
+  function fullPhone() {
+    return `${phoneCode}${phoneNumber.replace(/\s/g, '')}`
+  }
 
   function next() {
     if (step === 1) {
@@ -93,11 +93,12 @@ export default function Register() {
       if (!businessName.trim()) { toast.error('Please enter your business name'); return }
     }
     if (step === 2) {
-      const cleaned = phone.replace(/\s/g, '')
-      if (!cleaned || cleaned.length < 9) { toast.error('Please enter a valid phone number'); return }
+      if (!country) { toast.error('Please select your country'); return }
     }
     if (step === 3) {
-      if (!country) { toast.error('Please select your country'); return }
+      if (!phoneNumber.replace(/\s/g, '') || phoneNumber.replace(/\s/g, '').length < 7) {
+        toast.error('Please enter a valid phone number'); return
+      }
     }
     if (step === 4) {
       if (!/^\d{4}$/.test(pin)) { toast.error('Please enter a 4-digit PIN'); return }
@@ -123,7 +124,7 @@ export default function Register() {
       const data = await authAPI.register({
         owner_name: ownerName.trim(),
         business_name: businessName.trim(),
-        phone: phone.replace(/\s/g, ''),
+        phone: fullPhone(),
         pin,
         security_question: securityQuestion,
         security_answer: securityAnswer.trim(),
@@ -144,8 +145,8 @@ export default function Register() {
 
   const stepInfo: Record<number, { title: string; subtitle: string }> = {
     1: { title: 'Create your account', subtitle: 'Enter your name and your business name to get started.' },
-    2: { title: 'Your phone number', subtitle: 'This will be your login identifier. Keep it one you always have access to.' },
-    3: { title: 'Where are you based?', subtitle: 'Select your country. This sets your currency automatically.' },
+    2: { title: 'Where are you based?', subtitle: 'Select your country. This sets your currency automatically.' },
+    3: { title: 'Your phone number', subtitle: 'This will be your login identifier. Keep it one you always have access to.' },
     4: { title: 'Create your PIN', subtitle: 'Choose a 4-digit PIN to secure your account.' },
     5: { title: 'Confirm your PIN', subtitle: 'Enter your PIN again to make sure it is correct.' },
     6: { title: 'Security question', subtitle: 'Used to recover your PIN if you ever forget it.' },
@@ -194,10 +195,8 @@ export default function Register() {
 
               {/* Back */}
               {step > 1 && (
-                <button
-                  onClick={() => setStep(prev => (prev - 1) as Step)}
-                  className="flex items-center gap-1 text-gray-400 text-sm mb-4 hover:text-gray-600 transition-colors"
-                >
+                <button onClick={() => setStep(prev => (prev - 1) as Step)}
+                  className="flex items-center gap-1 text-gray-400 text-sm mb-4 hover:text-gray-600 transition-colors">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
@@ -205,7 +204,6 @@ export default function Register() {
                 </button>
               )}
 
-              {/* Title */}
               <h2 className="text-xl font-bold text-gray-900 mb-1">{stepInfo[step]?.title}</h2>
               <p className="text-gray-400 text-sm mb-5">{stepInfo[step]?.subtitle}</p>
 
@@ -225,34 +223,16 @@ export default function Register() {
                 </div>
               )}
 
-              {/* Step 2 — Phone */}
+              {/* Step 2 — Country */}
               {step === 2 && (
-                <div>
-                  <label className="label">Phone number</label>
-                  <input
-                    type="tel"
-                    className="input w-full"
-                    placeholder="+250 7XX XXX XXX"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-              )}
-
-              {/* Step 3 — Country */}
-              {step === 3 && (
                 <div className="grid grid-cols-2 gap-2">
                   {COUNTRIES.map(c => (
-                    <button
-                      key={c.name}
-                      onClick={() => setCountry(c)}
+                    <button key={c.name} onClick={() => selectCountry(c)}
                       className={`py-2.5 px-3 rounded-xl border-2 text-sm font-medium transition-all text-left flex items-center gap-2 ${
                         country?.name === c.name
                           ? 'border-blue-600 bg-blue-50 text-blue-700'
                           : 'border-gray-200 text-gray-700 hover:border-gray-300 bg-white'
-                      }`}
-                    >
+                      }`}>
                       <span className="text-lg">{c.flag}</span>
                       {c.name}
                     </button>
@@ -260,10 +240,45 @@ export default function Register() {
                 </div>
               )}
 
-              {/* Step 4 — Create PIN */}
-              {step === 4 && (
-                <PinKeypad value={pin} onChange={setPin} />
+              {/* Step 3 — Phone */}
+              {step === 3 && (
+                <div>
+                  <label className="label">Phone number</label>
+                  <div className="flex gap-2">
+                    <div className="relative">
+                      <select
+                        className="input appearance-none pr-7 pl-3 cursor-pointer font-medium text-gray-800 bg-gray-50"
+                        value={phoneCode}
+                        onChange={e => setPhoneCode(e.target.value)}
+                        style={{ minWidth: '95px' }}
+                      >
+                        {COUNTRIES.map(c => (
+                          <option key={c.name} value={c.code}>{c.flag} {c.code}</option>
+                        ))}
+                      </select>
+                      <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                    <input
+                      type="tel"
+                      className="input flex-1"
+                      placeholder="7XX XXX XXX"
+                      value={phoneNumber}
+                      onChange={e => setPhoneNumber(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  {phoneNumber && (
+                    <p className="text-xs text-gray-400 mt-2">
+                      Full number: <span className="font-medium text-gray-700">{phoneCode}{phoneNumber.replace(/\s/g, '')}</span>
+                    </p>
+                  )}
+                </div>
               )}
+
+              {/* Step 4 — PIN */}
+              {step === 4 && <PinKeypad value={pin} onChange={setPin} />}
 
               {/* Step 5 — Confirm PIN */}
               {step === 5 && (
@@ -301,7 +316,7 @@ export default function Register() {
                 </div>
               )}
 
-              {/* Step 7 — Email (optional) */}
+              {/* Step 7 — Email */}
               {step === 7 && (
                 <div>
                   <label className="label">Email address <span className="text-gray-300 font-normal">(optional)</span></label>
@@ -315,35 +330,29 @@ export default function Register() {
 
             {/* Footer */}
             <div className="px-6 pb-6 space-y-3">
-              {/* Normal continue button — hide on PIN steps until filled */}
               {step !== 4 && step !== 5 && (
                 <button onClick={next} disabled={loading} className="btn-primary w-full py-3">
                   {loading ? 'Creating account...' : step === 7 ? 'Finish' : 'Continue'}
                 </button>
               )}
-
-              {/* PIN step 4 — show Continue only when 4 digits entered */}
               {step === 4 && (
-                <button onClick={next} disabled={pin.length !== 4} className={`btn-primary w-full py-3 ${pin.length !== 4 ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                <button onClick={next} disabled={pin.length !== 4}
+                  className={`btn-primary w-full py-3 ${pin.length !== 4 ? 'opacity-40 cursor-not-allowed' : ''}`}>
                   Continue
                 </button>
               )}
-
-              {/* PIN step 5 — show Continue only when match */}
               {step === 5 && (
                 <button onClick={next} disabled={confirmPin.length !== 4 || confirmPin !== pin}
                   className={`btn-primary w-full py-3 ${(confirmPin.length !== 4 || confirmPin !== pin) ? 'opacity-40 cursor-not-allowed' : ''}`}>
                   Continue
                 </button>
               )}
-
               {step === 7 && (
                 <button onClick={() => { setEmail(''); handleSubmit() }}
                   className="w-full text-center text-gray-400 text-sm hover:text-gray-600 transition-colors py-1">
                   Skip for now
                 </button>
               )}
-
               {step === 1 && (
                 <p className="text-center text-gray-400 text-sm">
                   Already have an account?{' '}
