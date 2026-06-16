@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { stockAPI, suppliersAPI, productsAPI, pricesAPI } from '../lib/api'
+import { stockAPI, suppliersAPI, productsAPI, pricesAPI, financesAPI } from '../lib/api'
 import type { Product, Supplier, Price } from '../lib/types'
 import { stockToPieces, formatRWF, getPriceForDate, today, yesterday } from '../lib/helpers'
 import { Link } from 'react-router-dom'
@@ -11,31 +11,19 @@ interface DailySummary {
   totalProductsSold: number
 }
 
+interface BalanceData {
+  totalRevenue: number
+  totalCollected: number
+  difference: number
+}
+
 export default function Dashboard() {
   const { business } = useAuth()
   const [summary, setSummary] = useState<DailySummary | null>(null)
+  const [balance, setBalance] = useState<BalanceData | null>(null)
   const [loading, setLoading] = useState(true)
   const [todayDate] = useState(today())
   const [hasEntryToday, setHasEntryToday] = useState(false)
-  const [hasData, setHasData] = useState(false)
-  const [momo] = useState('')
-  const [cash] = useState('')
-  const [debts] = useState<{ amount: string }[]>([])
-  const [expenses] = useState<{ amount: string }[]>([])
-  // Derived UI state for finances section
-  
-  const totalRevenue = summary?.totalRevenue || 0
-  const totalMomo = parseFloat(parseNumberInput(momo)) || 0
-  const totalCash = parseFloat(parseNumberInput(cash)) || 0
-  const totalDebts = debts.reduce((sum, d) => sum + (parseFloat(parseNumberInput(d.amount)) || 0), 0)
-  const totalExpenses = expenses.reduce((sum, e) => sum + (parseFloat(parseNumberInput(e.amount)) || 0), 0)
-  const totalCollected = totalMomo + totalCash + totalDebts + totalExpenses
-  const difference = totalRevenue - totalCollected
-  const hasFinances = totalMomo > 0 || totalCash > 0 || totalDebts > 0 || totalExpenses > 0
-
-  function parseNumberInput(value: string): string {
-    return value.replace(/,/g, '')
-  }
 
   useEffect(() => {
     if (business) loadSummary()
@@ -44,9 +32,6 @@ export default function Dashboard() {
   async function loadSummary() {
     if (!business) return
     setLoading(true)
-
-    
-
     try {
       const [
         productsData,
@@ -55,6 +40,7 @@ export default function Dashboard() {
         todayEntries,
         yesterdayEntries,
         receivedToday,
+        financesData,
       ] = await Promise.all([
         productsAPI.getAll(),
         suppliersAPI.getAll(),
@@ -62,6 +48,7 @@ export default function Dashboard() {
         stockAPI.getEntries(todayDate),
         stockAPI.getEntries(yesterday(todayDate)),
         stockAPI.getReceived(todayDate),
+        financesAPI.get(todayDate),
       ])
 
       const products: Product[] = productsData.products
@@ -75,6 +62,7 @@ export default function Dashboard() {
 
       if (!todayEntriesList.length || !yesterdayEntriesList.length) {
         setSummary(null)
+        setBalance(null)
         setLoading(false)
         return
       }
@@ -116,6 +104,24 @@ export default function Dashboard() {
         .map(s => ({ supplier: s, revenue: supplierRevenueMap[s.id] }))
 
       setSummary({ totalRevenue, supplierRevenues, totalProductsSold })
+
+      // Calculate balance from finances
+      const momo = parseFloat(financesData.finances?.momo) || 0
+      const cash = parseFloat(financesData.finances?.cash) || 0
+      const debtsTotal = (financesData.debts || []).reduce((sum: number, d: any) => sum + parseFloat(d.amount || 0), 0)
+      const expensesTotal = (financesData.expenses || []).reduce((sum: number, e: any) => sum + parseFloat(e.amount || 0), 0)
+      const totalCollected = momo + cash + debtsTotal + expensesTotal
+
+      if (totalCollected > 0) {
+        setBalance({
+          totalRevenue,
+          totalCollected,
+          difference: totalCollected - totalRevenue,
+        })
+      } else {
+        setBalance(null)
+      }
+
     } catch (error) {
       console.error('Dashboard error:', error)
     } finally {
@@ -125,6 +131,7 @@ export default function Dashboard() {
 
   return (
     <div>
+      {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">
           Good {getTimeOfDay()}, {business?.owner_name?.split(' ')[0]}! 👋
@@ -132,10 +139,13 @@ export default function Dashboard() {
         <p className="text-gray-500 mt-1">{formatDate(todayDate)} — {business?.business_name}</p>
       </div>
 
+      {/* Account pending warning */}
       {!business?.is_active && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
           <p className="text-yellow-800 font-medium">⚠️ Your account is pending activation</p>
           <p className="text-yellow-700 text-sm mt-1">Contact us to activate your account.</p>
+          <p className="text-yellow-700 text-sm mt-1">Phone: <span className="font-semibold text-gray-900 mt-1">+250 788 123 456</span></p>
+          <p className="text-yellow-700 text-sm mt-1">Email: <span className="font-semibold text-gray-900 mt-1">dyves.habinezangabo23@gmail.com</span></p>
         </div>
       )}
 
@@ -152,24 +162,47 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Balance result */}
-      {hasFinances && hasData && (
-        <div className={`card mb-6 border-2 ${difference === 0 ? 'border-green-400 bg-green-50' : difference > 0 ? 'border-blue-400 bg-blue-50' : 'border-red-400 bg-red-50'}`}>
+      {/* Balance result card */}
+      {!loading && balance && (
+        <div className={`card mb-6 border-2 ${
+          balance.difference === 0
+            ? 'border-green-400 bg-green-50'
+            : balance.difference > 0
+            ? 'border-blue-400 bg-blue-50'
+            : 'border-red-400 bg-red-50'
+        }`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-gray-500">
-                {difference === 0 ? 'Net' : difference > 0 ? 'Surplus' : 'Deficit'}
+                {balance.difference === 0 ? 'Balanced' : balance.difference > 0 ? 'Surplus' : 'Deficit'}
               </p>
-              <p className={`text-2xl font-bold ${difference === 0 ? 'text-green-700' : difference > 0 ? 'text-blue-700' : 'text-red-700'}`}>
-                {difference === 0 ? 'Balanced — 0 RWF' : difference > 0 ? `+${formatRWF(difference)}` : `-${formatRWF(Math.abs(difference))}`}
+              <p className={`text-3xl font-bold mb-3 ${
+                balance.difference === 0
+                  ? 'text-green-700'
+                  : balance.difference > 0
+                  ? 'text-blue-700'
+                  : 'text-red-700'
+              }`}>
+                {balance.difference === 0
+                  ? '0 RWF'
+                  : balance.difference > 0
+                  ? `+${formatRWF(balance.difference)}`
+                  : `-${formatRWF(Math.abs(balance.difference))}`}
               </p>
-              <div>
-                <p className="text-xs text-gray-500 mt-1">Collected money: {formatRWF(totalCollected)}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Revenue: {formatRWF(totalRevenue)}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Products sold: {summary?.totalProductsSold}</p>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-28">Revenue</span>
+                  <span className="text-xs font-semibold text-gray-800">{formatRWF(balance.totalRevenue)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-28">Collected</span>
+                  <span className="text-xs font-semibold text-gray-800">{formatRWF(balance.totalCollected)}</span>
+                </div>
               </div>
             </div>
-            <div className="text-4xl">{difference === 0 ? '⚖️' : difference > 0 ? '📈' : '📉'}</div>
+            <div className="text-5xl">
+              {balance.difference === 0 ? '⚖️' : balance.difference > 0 ? '📈' : '📉'}
+            </div>
           </div>
         </div>
       )}
@@ -237,8 +270,6 @@ export default function Dashboard() {
           <p className="text-sm font-medium text-gray-900">Prices</p>
           <p className="text-xs text-gray-500 mt-1">Update product prices</p>
         </Link>
-
-        
 
       </div>
     </div>
