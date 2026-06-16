@@ -45,12 +45,12 @@ type ConfirmAction =
   | { type: 'save_past' }
   | null
 
-function isOlderThanToday(dateStr: string): boolean {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+function isOlderThan24Hours(dateStr: string): boolean {
   const [year, month, day] = dateStr.split('-').map(Number)
   const entryDate = new Date(year, month - 1, day)
-  return entryDate < today
+  entryDate.setHours(23, 59, 59, 999)
+  const diffHours = (new Date().getTime() - entryDate.getTime()) / (1000 * 60 * 60)
+  return diffHours > 24
 }
 
 export default function Reports() {
@@ -65,6 +65,13 @@ export default function Reports() {
   const [hasData, setHasData] = useState(false)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
 
+  // Whether user has confirmed editing a past entry in this session
+  const [editingUnlocked, setEditingUnlocked] = useState(false)
+  // Show the unlock warning popup
+  const [showUnlockWarning, setShowUnlockWarning] = useState(false)
+  // What to do after user confirms unlock
+  const [pendingFocusRef, setPendingFocusRef] = useState<(() => void) | null>(null)
+
   const [momo, setMomo] = useState('')
   const [cash, setCash] = useState('')
   const [debts, setDebts] = useState<DebtEntry[]>([{ client_name: '', amount: '', is_paid: false }])
@@ -73,7 +80,14 @@ export default function Reports() {
 
   const currentSnapshot = JSON.stringify({ momo, cash, debts, expenses })
   const hasUnsavedChanges = savedSnapshot !== currentSnapshot
-  const isPastDate = isOlderThanToday(reportDate)
+  const isPast = isOlderThan24Hours(reportDate)
+  // Inputs are editable if: not past, OR past but user confirmed unlock
+  const canEdit = !isPast || editingUnlocked
+
+  // Reset unlock when date changes
+  useEffect(() => {
+    setEditingUnlocked(false)
+  }, [reportDate])
 
   useEffect(() => {
     if (business) loadBaseData()
@@ -178,6 +192,26 @@ export default function Reports() {
     }
   }
 
+  // Called when user clicks any input on a past entry
+  function requestEdit(onConfirmed: () => void) {
+    if (canEdit) {
+      onConfirmed()
+      return
+    }
+    // Show unlock warning, store what to do after confirm
+    setPendingFocusRef(() => onConfirmed)
+    setShowUnlockWarning(true)
+  }
+
+  function confirmUnlock() {
+    setEditingUnlocked(true)
+    setShowUnlockWarning(false)
+    if (pendingFocusRef) {
+      setTimeout(() => pendingFocusRef(), 50)
+      setPendingFocusRef(null)
+    }
+  }
+
   function formatNumberInput(value: string): string {
     if (!value) return ''
     const num = value.replace(/,/g, '')
@@ -195,8 +229,7 @@ export default function Reports() {
 
   function handleSaveClick() {
     if (!business) return
-    // If past date — show warning first
-    if (isPastDate) {
+    if (isPast) {
       setConfirmAction({ type: 'save_past' })
       return
     }
@@ -291,24 +324,22 @@ export default function Reports() {
     revenue: saleRows.filter(r => r.supplier.id === supplier.id).reduce((sum, r) => sum + r.revenue, 0),
   }))
 
-  function getConfirmMessage(): { title: string; message: string; confirmLabel: string; danger: boolean } {
-    if (!confirmAction) return { title: '', message: '', confirmLabel: '', danger: false }
-
+  function getConfirmMessage(): { title: string; message: string; confirmLabel: string } {
+    if (!confirmAction) return { title: '', message: '', confirmLabel: '' }
     if (confirmAction.type === 'save_past') {
       return {
-        title: 'Editing past finances',
-        message: `You are about to edit finances for ${formatDate(reportDate)} — a past date. This will overwrite the previously saved data. Make sure your changes are correct before confirming.`,
+        title: '⚠️ Saving past finances',
+        message: `You are about to save changes to finances for ${formatDate(reportDate)} — a past date. This will overwrite the previously saved data. Are you sure your changes are correct?`,
         confirmLabel: 'Yes, save changes',
-        danger: true,
       }
     }
     if (confirmAction.type === 'delete_debt') {
       const debt = debts[confirmAction.index]
-      return { title: 'Remove debt?', message: `Remove ${debt.client_name || 'this debt'} (${formatNumberInput(debt.amount)} RWF)?`, confirmLabel: 'Yes, remove', danger: true }
+      return { title: 'Remove debt?', message: `Remove ${debt.client_name || 'this debt'} (${formatNumberInput(debt.amount)} RWF)?`, confirmLabel: 'Yes, remove' }
     }
     if (confirmAction.type === 'delete_expense') {
       const expense = expenses[confirmAction.index]
-      return { title: 'Remove expense?', message: `Remove "${expense.description || 'this expense'}" (${formatNumberInput(expense.amount)} RWF)?`, confirmLabel: 'Yes, remove', danger: true }
+      return { title: 'Remove expense?', message: `Remove "${expense.description || 'this expense'}" (${formatNumberInput(expense.amount)} RWF)?`, confirmLabel: 'Yes, remove' }
     }
     if (confirmAction.type === 'toggle_debt') {
       const debt = debts[confirmAction.index]
@@ -316,31 +347,54 @@ export default function Reports() {
         title: debt.is_paid ? 'Mark as unpaid?' : 'Mark as paid?',
         message: debt.is_paid ? `Mark ${debt.client_name} as unpaid again?` : `Confirm ${debt.client_name} paid ${formatNumberInput(debt.amount)} RWF?`,
         confirmLabel: debt.is_paid ? 'Yes, mark unpaid' : 'Yes, mark paid',
-        danger: false,
       }
     }
-    return { title: '', message: '', confirmLabel: '', danger: false }
+    return { title: '', message: '', confirmLabel: '' }
   }
 
   const confirmMsg = getConfirmMessage()
 
   return (
     <div>
-      {/* Confirm popup */}
+
+      {/* Unlock warning popup — shown when clicking any input on past entry */}
+      {showUnlockWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900">Editing past finances</h2>
+            </div>
+            <p className="text-gray-500 text-sm mb-6">
+              You are about to edit finances for <span className="font-semibold text-gray-800">{formatDate(reportDate)}</span> — a past date that has already been saved.
+              <br /><br />
+              Are you sure you want to make changes? A second confirmation will be required before saving.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={confirmUnlock} className="flex-1 bg-orange-500 text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-orange-600 transition-colors">
+                Yes, I want to edit
+              </button>
+              <button onClick={() => setShowUnlockWarning(false)} className="btn-secondary flex-1">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action confirm popup */}
       {confirmAction && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
             <div className="flex items-center gap-3 mb-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${confirmMsg.danger ? 'bg-orange-100' : 'bg-green-100'}`}>
-                {confirmMsg.danger ? (
-                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
               </div>
               <h2 className="text-lg font-semibold text-gray-900">{confirmMsg.title}</h2>
             </div>
@@ -348,11 +402,7 @@ export default function Reports() {
             <div className="flex gap-3">
               <button
                 onClick={executeConfirmAction}
-                className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
-                  confirmMsg.danger
-                    ? 'bg-orange-500 text-white hover:bg-orange-600'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
+                className="flex-1 bg-orange-500 text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-orange-600 transition-colors"
               >
                 {confirmMsg.confirmLabel}
               </button>
@@ -389,7 +439,7 @@ export default function Reports() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            {/* LEFT — Revenue */}
+            {/* Revenue */}
             <div className="card">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Revenue</p>
               {!hasData ? (
@@ -410,42 +460,57 @@ export default function Reports() {
               )}
             </div>
 
-            {/* RIGHT — Money collected */}
+            {/* Money collected */}
             <div className="card">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Money collected</p>
-                {isPastDate && (
-                  <span className="text-xs text-orange-500 font-semibold flex items-center gap-1">
-                    ⚠️ Past date
-                  </span>
+                {isPast && !editingUnlocked && (
+                  <span className="text-xs text-orange-500 font-semibold">🔒 Click to edit</span>
+                )}
+                {isPast && editingUnlocked && (
+                  <span className="text-xs text-orange-500 font-semibold">⚠️ Editing past date</span>
                 )}
               </div>
 
-              {isPastDate && (
+              {isPast && !editingUnlocked && (
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5 mb-4 text-xs text-orange-700 flex items-center gap-2">
-                  ⚠️ <span>You are viewing a <strong>past date</strong>. You can still edit but a warning will appear before saving.</span>
+                  🔒 <span>This is a past date. Click any field to edit — a warning will appear first.</span>
                 </div>
               )}
 
+              {isPast && editingUnlocked && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5 mb-4 text-xs text-orange-700 flex items-center gap-2">
+                  ⚠️ <span>You are editing a past date. A confirmation will be required before saving.</span>
+                </div>
+              )}
+
+              {/* MoMo */}
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm text-gray-700">MoMo</label>
                 <input
                   type="text" inputMode="numeric"
-                  className="input text-right w-40 text-sm"
+                  className={`input text-right w-40 text-sm ${!canEdit ? 'cursor-pointer bg-orange-50 border-orange-200' : ''}`}
                   placeholder="0"
                   value={formatNumberInput(momo)}
-                  onChange={e => { setMomo(parseNumberInput(e.target.value)); setSaveStatus('idle') }}
+                  readOnly={!canEdit}
+                  onFocus={() => requestEdit(() => {})}
+                  onClick={() => requestEdit(() => {})}
+                  onChange={e => { if (canEdit) { setMomo(parseNumberInput(e.target.value)); setSaveStatus('idle') } }}
                 />
               </div>
 
+              {/* Cash */}
               <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
                 <label className="text-sm text-gray-700">Cash</label>
                 <input
                   type="text" inputMode="numeric"
-                  className="input text-right w-40 text-sm"
+                  className={`input text-right w-40 text-sm ${!canEdit ? 'cursor-pointer bg-orange-50 border-orange-200' : ''}`}
                   placeholder="0"
                   value={formatNumberInput(cash)}
-                  onChange={e => { setCash(parseNumberInput(e.target.value)); setSaveStatus('idle') }}
+                  readOnly={!canEdit}
+                  onFocus={() => requestEdit(() => {})}
+                  onClick={() => requestEdit(() => {})}
+                  onChange={e => { if (canEdit) { setCash(parseNumberInput(e.target.value)); setSaveStatus('idle') } }}
                 />
               </div>
 
@@ -454,7 +519,7 @@ export default function Reports() {
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-gray-700">Debts given</p>
                   <button
-                    onClick={() => { setDebts([...debts, { client_name: '', amount: '', is_paid: false }]); setSaveStatus('idle') }}
+                    onClick={() => requestEdit(() => { setDebts([...debts, { client_name: '', amount: '', is_paid: false }]); setSaveStatus('idle') })}
                     className="text-xs text-blue-600 font-medium hover:text-blue-800"
                   >
                     + Add client
@@ -477,20 +542,26 @@ export default function Reports() {
                       </button>
                       <input
                         type="text"
-                        className={`input flex-1 text-sm ${debt.is_paid ? 'line-through bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}
+                        className={`input flex-1 text-sm ${debt.is_paid ? 'line-through bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'} ${!canEdit ? 'cursor-pointer' : ''}`}
                         placeholder="Client name"
                         value={debt.client_name}
-                        onChange={e => { const u = [...debts]; u[i] = { ...u[i], client_name: e.target.value }; setDebts(u); setSaveStatus('idle') }}
+                        readOnly={!canEdit}
+                        onClick={() => requestEdit(() => {})}
+                        onFocus={() => requestEdit(() => {})}
+                        onChange={e => { if (canEdit) { const u = [...debts]; u[i] = { ...u[i], client_name: e.target.value }; setDebts(u); setSaveStatus('idle') } }}
                       />
                       <input
                         type="text" inputMode="numeric"
-                        className={`input w-28 text-right text-sm ${debt.is_paid ? 'line-through bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}
+                        className={`input w-28 text-right text-sm ${debt.is_paid ? 'line-through bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'} ${!canEdit ? 'cursor-pointer' : ''}`}
                         placeholder="Amount"
                         value={formatNumberInput(debt.amount)}
-                        onChange={e => { const u = [...debts]; u[i] = { ...u[i], amount: parseNumberInput(e.target.value) }; setDebts(u); setSaveStatus('idle') }}
+                        readOnly={!canEdit}
+                        onClick={() => requestEdit(() => {})}
+                        onFocus={() => requestEdit(() => {})}
+                        onChange={e => { if (canEdit) { const u = [...debts]; u[i] = { ...u[i], amount: parseNumberInput(e.target.value) }; setDebts(u); setSaveStatus('idle') } }}
                       />
                       <button
-                        onClick={() => setConfirmAction({ type: 'delete_debt', index: i })}
+                        onClick={() => requestEdit(() => setConfirmAction({ type: 'delete_debt', index: i }))}
                         className="text-red-400 hover:text-red-600 font-bold text-lg shrink-0"
                       >×</button>
                     </div>
@@ -503,7 +574,7 @@ export default function Reports() {
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-gray-700">Expenses</p>
                   <button
-                    onClick={() => { setExpenses([...expenses, { description: '', amount: '' }]); setSaveStatus('idle') }}
+                    onClick={() => requestEdit(() => { setExpenses([...expenses, { description: '', amount: '' }]); setSaveStatus('idle') })}
                     className="text-xs text-blue-600 font-medium hover:text-blue-800"
                   >
                     + Add expense
@@ -513,21 +584,27 @@ export default function Reports() {
                   <div key={i} className="flex gap-2 items-center mb-1.5">
                     <input
                       type="text"
-                      className="input flex-1 text-sm"
+                      className={`input flex-1 text-sm ${!canEdit ? 'cursor-pointer' : ''}`}
                       placeholder="e.g. Transport"
                       value={expense.description}
-                      onChange={e => { const u = [...expenses]; u[i] = { ...u[i], description: e.target.value }; setExpenses(u); setSaveStatus('idle') }}
+                      readOnly={!canEdit}
+                      onClick={() => requestEdit(() => {})}
+                      onFocus={() => requestEdit(() => {})}
+                      onChange={e => { if (canEdit) { const u = [...expenses]; u[i] = { ...u[i], description: e.target.value }; setExpenses(u); setSaveStatus('idle') } }}
                     />
                     <input
                       type="text" inputMode="numeric"
-                      className="input w-32 text-right text-sm"
+                      className={`input w-32 text-right text-sm ${!canEdit ? 'cursor-pointer' : ''}`}
                       placeholder="Amount"
                       value={formatNumberInput(expense.amount)}
-                      onChange={e => { const u = [...expenses]; u[i] = { ...u[i], amount: parseNumberInput(e.target.value) }; setExpenses(u); setSaveStatus('idle') }}
+                      readOnly={!canEdit}
+                      onClick={() => requestEdit(() => {})}
+                      onFocus={() => requestEdit(() => {})}
+                      onChange={e => { if (canEdit) { const u = [...expenses]; u[i] = { ...u[i], amount: parseNumberInput(e.target.value) }; setExpenses(u); setSaveStatus('idle') } }}
                     />
                     {expenses.length > 1 && (
                       <button
-                        onClick={() => setConfirmAction({ type: 'delete_expense', index: i })}
+                        onClick={() => requestEdit(() => setConfirmAction({ type: 'delete_expense', index: i }))}
                         className="text-red-400 hover:text-red-600 font-bold text-lg shrink-0"
                       >×</button>
                     )}
@@ -548,14 +625,14 @@ export default function Reports() {
                     ? 'bg-green-100 text-green-700 border border-green-300 cursor-not-allowed'
                     : saveStatus === 'saving'
                     ? 'bg-blue-400 text-white cursor-not-allowed'
-                    : isPastDate
+                    : isPast
                     ? 'bg-orange-500 text-white hover:bg-orange-600'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
               >
                 {saveStatus === 'saving' ? 'Saving...'
                   : saveStatus === 'saved' && !hasUnsavedChanges ? '✅ Saved'
-                  : isPastDate ? '⚠️ Save past date'
+                  : isPast ? '⚠️ Save past date'
                   : 'Save finances'}
               </button>
             </div>
