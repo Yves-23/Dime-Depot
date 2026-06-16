@@ -42,14 +42,15 @@ type ConfirmAction =
   | { type: 'delete_debt'; index: number }
   | { type: 'delete_expense'; index: number }
   | { type: 'toggle_debt'; index: number }
+  | { type: 'save_past' }
   | null
 
-function isLocked(dateStr: string): boolean {
+function isOlderThanToday(dateStr: string): boolean {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
   const [year, month, day] = dateStr.split('-').map(Number)
   const entryDate = new Date(year, month - 1, day)
-  entryDate.setHours(23, 59, 59, 999)
-  const diffHours = (new Date().getTime() - entryDate.getTime()) / (1000 * 60 * 60)
-  return diffHours > 24
+  return entryDate < today
 }
 
 export default function Reports() {
@@ -72,7 +73,7 @@ export default function Reports() {
 
   const currentSnapshot = JSON.stringify({ momo, cash, debts, expenses })
   const hasUnsavedChanges = savedSnapshot !== currentSnapshot
-  const locked = isLocked(reportDate)
+  const isPastDate = isOlderThanToday(reportDate)
 
   useEffect(() => {
     if (business) loadBaseData()
@@ -101,7 +102,6 @@ export default function Reports() {
   async function loadReport() {
     if (!business) return
     setLoading(true)
-
     try {
       const [todayEntries, yesterdayEntries, receivedToday, financesData] = await Promise.all([
         stockAPI.getEntries(reportDate),
@@ -193,8 +193,51 @@ export default function Reports() {
     return Math.round(amount).toLocaleString()
   }
 
+  function handleSaveClick() {
+    if (!business) return
+    // If past date — show warning first
+    if (isPastDate) {
+      setConfirmAction({ type: 'save_past' })
+      return
+    }
+    doSaveFinances()
+  }
+
+  async function doSaveFinances() {
+    if (!business) return
+    setSaveStatus('saving')
+    try {
+      await financesAPI.save(reportDate, {
+        momo: parseFloat(parseNumberInput(momo)) || 0,
+        cash: parseFloat(parseNumberInput(cash)) || 0,
+        debts: debts.map(d => ({
+          client_name: d.client_name,
+          amount: parseFloat(parseNumberInput(d.amount)) || 0,
+          is_paid: d.is_paid,
+        })),
+        expenses: expenses.map(e => ({
+          description: e.description,
+          amount: parseFloat(parseNumberInput(e.amount)) || 0,
+        })),
+      })
+      setSaveStatus('saved')
+      setSavedSnapshot(currentSnapshot)
+      toast.success('Finances saved!')
+      loadReport()
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Something went wrong')
+      setSaveStatus('idle')
+    }
+  }
+
   async function executeConfirmAction() {
     if (!confirmAction) return
+
+    if (confirmAction.type === 'save_past') {
+      setConfirmAction(null)
+      await doSaveFinances()
+      return
+    }
 
     if (confirmAction.type === 'delete_debt') {
       setDebts(debts.filter((_, idx) => idx !== confirmAction.index))
@@ -233,35 +276,6 @@ export default function Reports() {
     setConfirmAction(null)
   }
 
-  async function saveFinances() {
-    if (!business || locked) return
-    setSaveStatus('saving')
-
-    try {
-      await financesAPI.save(reportDate, {
-        momo: parseFloat(parseNumberInput(momo)) || 0,
-        cash: parseFloat(parseNumberInput(cash)) || 0,
-        debts: debts.map(d => ({
-          client_name: d.client_name,
-          amount: parseFloat(parseNumberInput(d.amount)) || 0,
-          is_paid: d.is_paid,
-        })),
-        expenses: expenses.map(e => ({
-          description: e.description,
-          amount: parseFloat(parseNumberInput(e.amount)) || 0,
-        })),
-      })
-
-      setSaveStatus('saved')
-      setSavedSnapshot(currentSnapshot)
-      toast.success('Finances saved!')
-      loadReport()
-    } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : 'Something went wrong')
-      setSaveStatus('idle')
-    }
-  }
-
   const totalRevenue = saleRows.reduce((sum, r) => sum + r.revenue, 0)
   const totalMomo = parseFloat(parseNumberInput(momo)) || 0
   const totalCash = parseFloat(parseNumberInput(cash)) || 0
@@ -270,7 +284,7 @@ export default function Reports() {
   const totalCollected = totalMomo + totalCash + totalDebts + totalExpenses
   const difference = totalCollected - totalRevenue
   const hasFinances = totalMomo > 0 || totalCash > 0 || totalDebts > 0 || totalExpenses > 0
-  const isSaveDisabled = locked || saveStatus === 'saving' || (saveStatus === 'saved' && !hasUnsavedChanges)
+  const isSaveDisabled = saveStatus === 'saving' || (saveStatus === 'saved' && !hasUnsavedChanges)
 
   const supplierRevenues = suppliers.map(supplier => ({
     supplier,
@@ -279,6 +293,15 @@ export default function Reports() {
 
   function getConfirmMessage(): { title: string; message: string; confirmLabel: string; danger: boolean } {
     if (!confirmAction) return { title: '', message: '', confirmLabel: '', danger: false }
+
+    if (confirmAction.type === 'save_past') {
+      return {
+        title: 'Editing past finances',
+        message: `You are about to edit finances for ${formatDate(reportDate)} — a past date. This will overwrite the previously saved data. Make sure your changes are correct before confirming.`,
+        confirmLabel: 'Yes, save changes',
+        danger: true,
+      }
+    }
     if (confirmAction.type === 'delete_debt') {
       const debt = debts[confirmAction.index]
       return { title: 'Remove debt?', message: `Remove ${debt.client_name || 'this debt'} (${formatNumberInput(debt.amount)} RWF)?`, confirmLabel: 'Yes, remove', danger: true }
@@ -308,9 +331,9 @@ export default function Reports() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
             <div className="flex items-center gap-3 mb-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${confirmMsg.danger ? 'bg-red-100' : 'bg-green-100'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${confirmMsg.danger ? 'bg-orange-100' : 'bg-green-100'}`}>
                 {confirmMsg.danger ? (
-                  <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                   </svg>
                 ) : (
@@ -323,7 +346,14 @@ export default function Reports() {
             </div>
             <p className="text-gray-500 text-sm mb-6">{confirmMsg.message}</p>
             <div className="flex gap-3">
-              <button onClick={executeConfirmAction} className={confirmMsg.danger ? 'btn-danger flex-1' : 'btn-primary flex-1'}>
+              <button
+                onClick={executeConfirmAction}
+                className={`flex-1 py-2.5 rounded-lg font-semibold text-sm transition-colors ${
+                  confirmMsg.danger
+                    ? 'bg-orange-500 text-white hover:bg-orange-600'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
                 {confirmMsg.confirmLabel}
               </button>
               <button onClick={() => setConfirmAction(null)} className="btn-secondary flex-1">Cancel</button>
@@ -381,19 +411,19 @@ export default function Reports() {
             </div>
 
             {/* RIGHT — Money collected */}
-            <div className={`card ${locked ? 'opacity-80' : ''}`}>
+            <div className="card">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Money collected</p>
-                {locked && (
-                  <span className="text-xs text-red-500 font-semibold flex items-center gap-1">
-                    🔒 Locked
+                {isPastDate && (
+                  <span className="text-xs text-orange-500 font-semibold flex items-center gap-1">
+                    ⚠️ Past date
                   </span>
                 )}
               </div>
 
-              {locked && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 mb-4 text-xs text-red-700 flex items-center gap-2">
-                  🔒 <span>This report is <strong>locked</strong>. Finances cannot be edited after 24 hours.</span>
+              {isPastDate && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5 mb-4 text-xs text-orange-700 flex items-center gap-2">
+                  ⚠️ <span>You are viewing a <strong>past date</strong>. You can still edit but a warning will appear before saving.</span>
                 </div>
               )}
 
@@ -401,11 +431,10 @@ export default function Reports() {
                 <label className="text-sm text-gray-700">MoMo</label>
                 <input
                   type="text" inputMode="numeric"
-                  className={`input text-right w-40 text-sm ${locked ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                  className="input text-right w-40 text-sm"
                   placeholder="0"
                   value={formatNumberInput(momo)}
-                  onChange={e => { if (!locked) { setMomo(parseNumberInput(e.target.value)); setSaveStatus('idle') } }}
-                  disabled={locked}
+                  onChange={e => { setMomo(parseNumberInput(e.target.value)); setSaveStatus('idle') }}
                 />
               </div>
 
@@ -413,11 +442,10 @@ export default function Reports() {
                 <label className="text-sm text-gray-700">Cash</label>
                 <input
                   type="text" inputMode="numeric"
-                  className={`input text-right w-40 text-sm ${locked ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                  className="input text-right w-40 text-sm"
                   placeholder="0"
                   value={formatNumberInput(cash)}
-                  onChange={e => { if (!locked) { setCash(parseNumberInput(e.target.value)); setSaveStatus('idle') } }}
-                  disabled={locked}
+                  onChange={e => { setCash(parseNumberInput(e.target.value)); setSaveStatus('idle') }}
                 />
               </div>
 
@@ -425,14 +453,12 @@ export default function Reports() {
               <div className="mb-3 pb-3 border-b border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-gray-700">Debts given</p>
-                  {!locked && (
-                    <button
-                      onClick={() => { setDebts([...debts, { client_name: '', amount: '', is_paid: false }]); setSaveStatus('idle') }}
-                      className="text-xs text-blue-600 font-medium hover:text-blue-800"
-                    >
-                      + Add client
-                    </button>
-                  )}
+                  <button
+                    onClick={() => { setDebts([...debts, { client_name: '', amount: '', is_paid: false }]); setSaveStatus('idle') }}
+                    className="text-xs text-blue-600 font-medium hover:text-blue-800"
+                  >
+                    + Add client
+                  </button>
                 </div>
                 {debts.map((debt, i) => (
                   <div key={i} className="mb-2">
@@ -451,26 +477,22 @@ export default function Reports() {
                       </button>
                       <input
                         type="text"
-                        className={`input flex-1 text-sm ${debt.is_paid ? 'line-through bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'} ${locked ? 'cursor-not-allowed' : ''}`}
+                        className={`input flex-1 text-sm ${debt.is_paid ? 'line-through bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}
                         placeholder="Client name"
                         value={debt.client_name}
-                        onChange={e => { if (!locked) { const u = [...debts]; u[i] = { ...u[i], client_name: e.target.value }; setDebts(u); setSaveStatus('idle') } }}
-                        disabled={locked}
+                        onChange={e => { const u = [...debts]; u[i] = { ...u[i], client_name: e.target.value }; setDebts(u); setSaveStatus('idle') }}
                       />
                       <input
                         type="text" inputMode="numeric"
-                        className={`input w-28 text-right text-sm ${debt.is_paid ? 'line-through bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'} ${locked ? 'cursor-not-allowed' : ''}`}
+                        className={`input w-28 text-right text-sm ${debt.is_paid ? 'line-through bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}
                         placeholder="Amount"
                         value={formatNumberInput(debt.amount)}
-                        onChange={e => { if (!locked) { const u = [...debts]; u[i] = { ...u[i], amount: parseNumberInput(e.target.value) }; setDebts(u); setSaveStatus('idle') } }}
-                        disabled={locked}
+                        onChange={e => { const u = [...debts]; u[i] = { ...u[i], amount: parseNumberInput(e.target.value) }; setDebts(u); setSaveStatus('idle') }}
                       />
-                      {!locked && (
-                        <button
-                          onClick={() => setConfirmAction({ type: 'delete_debt', index: i })}
-                          className="text-red-400 hover:text-red-600 font-bold text-lg shrink-0"
-                        >×</button>
-                      )}
+                      <button
+                        onClick={() => setConfirmAction({ type: 'delete_debt', index: i })}
+                        className="text-red-400 hover:text-red-600 font-bold text-lg shrink-0"
+                      >×</button>
                     </div>
                   </div>
                 ))}
@@ -480,34 +502,30 @@ export default function Reports() {
               <div className="mb-3 pb-3 border-b border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-gray-700">Expenses</p>
-                  {!locked && (
-                    <button
-                      onClick={() => { setExpenses([...expenses, { description: '', amount: '' }]); setSaveStatus('idle') }}
-                      className="text-xs text-blue-600 font-medium hover:text-blue-800"
-                    >
-                      + Add expense
-                    </button>
-                  )}
+                  <button
+                    onClick={() => { setExpenses([...expenses, { description: '', amount: '' }]); setSaveStatus('idle') }}
+                    className="text-xs text-blue-600 font-medium hover:text-blue-800"
+                  >
+                    + Add expense
+                  </button>
                 </div>
                 {expenses.map((expense, i) => (
                   <div key={i} className="flex gap-2 items-center mb-1.5">
                     <input
                       type="text"
-                      className={`input flex-1 text-sm ${locked ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                      className="input flex-1 text-sm"
                       placeholder="e.g. Transport"
                       value={expense.description}
-                      onChange={e => { if (!locked) { const u = [...expenses]; u[i] = { ...u[i], description: e.target.value }; setExpenses(u); setSaveStatus('idle') } }}
-                      disabled={locked}
+                      onChange={e => { const u = [...expenses]; u[i] = { ...u[i], description: e.target.value }; setExpenses(u); setSaveStatus('idle') }}
                     />
                     <input
                       type="text" inputMode="numeric"
-                      className={`input w-32 text-right text-sm ${locked ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                      className="input w-32 text-right text-sm"
                       placeholder="Amount"
                       value={formatNumberInput(expense.amount)}
-                      onChange={e => { if (!locked) { const u = [...expenses]; u[i] = { ...u[i], amount: parseNumberInput(e.target.value) }; setExpenses(u); setSaveStatus('idle') } }}
-                      disabled={locked}
+                      onChange={e => { const u = [...expenses]; u[i] = { ...u[i], amount: parseNumberInput(e.target.value) }; setExpenses(u); setSaveStatus('idle') }}
                     />
-                    {!locked && expenses.length > 1 && (
+                    {expenses.length > 1 && (
                       <button
                         onClick={() => setConfirmAction({ type: 'delete_expense', index: i })}
                         className="text-red-400 hover:text-red-600 font-bold text-lg shrink-0"
@@ -523,19 +541,22 @@ export default function Reports() {
               </div>
 
               <button
-                onClick={saveFinances}
+                onClick={handleSaveClick}
                 disabled={isSaveDisabled}
                 className={`w-full text-sm font-medium px-4 py-2 rounded-lg transition-all ${
-                  locked
-                    ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                    : saveStatus === 'saved' && !hasUnsavedChanges
+                  saveStatus === 'saved' && !hasUnsavedChanges
                     ? 'bg-green-100 text-green-700 border border-green-300 cursor-not-allowed'
                     : saveStatus === 'saving'
                     ? 'bg-blue-400 text-white cursor-not-allowed'
+                    : isPastDate
+                    ? 'bg-orange-500 text-white hover:bg-orange-600'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
               >
-                {locked ? '🔒 Locked' : saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' && !hasUnsavedChanges ? '✅ Saved' : 'Save finances'}
+                {saveStatus === 'saving' ? 'Saving...'
+                  : saveStatus === 'saved' && !hasUnsavedChanges ? '✅ Saved'
+                  : isPastDate ? '⚠️ Save past date'
+                  : 'Save finances'}
               </button>
             </div>
           </div>
@@ -583,9 +604,7 @@ export default function Reports() {
                           <div className="min-w-0">
                             <p className="font-medium text-gray-900 text-sm truncate">{row.product.name}</p>
                             <p className="text-xs text-gray-400">
-                              {row.pricePerCasse
-                                ? `${formatAmount(row.pricePerCasse)}/cs`
-                                : <span className="text-red-500">No price</span>}
+                              {row.pricePerCasse ? `${formatAmount(row.pricePerCasse)}/cs` : <span className="text-red-500">No price</span>}
                             </p>
                           </div>
                           <div className="flex justify-center">
