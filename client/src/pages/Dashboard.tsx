@@ -4,6 +4,8 @@ import { stockAPI, suppliersAPI, productsAPI, pricesAPI, financesAPI } from '../
 import type { Product, Supplier, Price } from '../lib/types'
 import { stockToPieces, formatRWF, getPriceForDate, today, yesterday } from '../lib/helpers'
 import { Link } from 'react-router-dom'
+import { t } from '../lib/i18n'
+import type { Language } from '../lib/i18n'
 
 interface DailySummary {
   totalRevenue: number
@@ -24,6 +26,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [todayDate] = useState(today())
   const [hasEntryToday, setHasEntryToday] = useState(false)
+
+  const lang: Language = (business as any)?.language || 'en'
 
   useEffect(() => {
     if (business) loadSummary()
@@ -105,7 +109,7 @@ export default function Dashboard() {
 
       setSummary({ totalRevenue, supplierRevenues, totalProductsSold })
 
-      // Calculate balance from finances
+      // Calculate balance
       const momo = parseFloat(financesData.finances?.momo) || 0
       const cash = parseFloat(financesData.finances?.cash) || 0
       const debtsTotal = (financesData.debts || []).reduce((sum: number, d: any) => sum + parseFloat(d.amount || 0), 0)
@@ -113,11 +117,7 @@ export default function Dashboard() {
       const totalCollected = momo + cash + debtsTotal + expensesTotal
 
       if (totalCollected > 0) {
-        setBalance({
-          totalRevenue,
-          totalCollected,
-          difference: totalCollected - totalRevenue,
-        })
+        setBalance({ totalRevenue, totalCollected, difference: totalCollected - totalRevenue })
       } else {
         setBalance(null)
       }
@@ -134,35 +134,33 @@ export default function Dashboard() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">
-          Good {getTimeOfDay()}, {business?.owner_name?.split(' ')[0]}! 👋
+          {getTimeOfDay(lang)}, {business?.owner_name?.split(' ')[0]}! 👋
         </h1>
         <p className="text-gray-500 mt-1">{formatDate(todayDate)} — {business?.business_name}</p>
       </div>
 
-      {/* Account pending warning */}
+      {/* Account pending */}
       {!business?.is_active && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
-          <p className="text-yellow-800 font-medium">⚠️ Your account is pending activation</p>
-          <p className="text-yellow-700 text-sm mt-1">Contact us to activate your account.</p>
-          <p className="text-yellow-700 text-sm mt-1">Phone: <span className="font-semibold text-gray-900 mt-1">+250 788 123 456</span></p>
-          <p className="text-yellow-700 text-sm mt-1">Email: <span className="font-semibold text-gray-900 mt-1">dyves.habinezangabo23@gmail.com</span></p>
+          <p className="text-yellow-800 font-medium">⚠️ {t('account_pending', lang)}</p>
+          <p className="text-yellow-700 text-sm mt-1">{t('account_pending_subtitle', lang)}</p>
         </div>
       )}
 
-      {/* No entry today warning */}
+      {/* No entry today */}
       {!loading && !hasEntryToday && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6 flex items-center justify-between gap-4">
           <div>
-            <p className="text-orange-800 font-medium text-sm">📋 No entry for today yet</p>
-            <p className="text-orange-600 text-xs mt-0.5">Don't forget to enter your closing stock this evening.</p>
+            <p className="text-orange-800 font-medium text-sm">📋 {t('no_entry_today', lang)}</p>
+            <p className="text-orange-600 text-xs mt-0.5">{t('no_entry_subtitle', lang)}</p>
           </div>
           <Link to="/daily-entry" className="btn-primary text-sm shrink-0">
-            Enter now
+            {t('enter_now', lang)}
           </Link>
         </div>
       )}
 
-      {/* Balance result card */}
+      {/* Balance card */}
       {!loading && balance && (
         <div className={`card mb-6 border-2 ${
           balance.difference === 0
@@ -174,28 +172,30 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-gray-500">
-                {balance.difference === 0 ? 'Balanced' : balance.difference > 0 ? 'Surplus' : 'Deficit'}
+                {balance.difference === 0
+                  ? t('balanced', lang)
+                  : balance.difference > 0
+                  ? t('surplus', lang)
+                  : t('deficit', lang)}
               </p>
               <p className={`text-3xl font-bold mb-3 ${
-                balance.difference === 0
-                  ? 'text-green-700'
-                  : balance.difference > 0
-                  ? 'text-blue-700'
-                  : 'text-red-700'
+                balance.difference === 0 ? 'text-green-700'
+                : balance.difference > 0 ? 'text-blue-700'
+                : 'text-red-700'
               }`}>
                 {balance.difference === 0
-                  ? '0 RWF'
+                  ? `0 ${business?.currency || 'RWF'}`
                   : balance.difference > 0
                   ? `+${formatRWF(balance.difference)}`
                   : `-${formatRWF(Math.abs(balance.difference))}`}
               </p>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-28">Revenue</span>
+                  <span className="text-xs text-gray-500 w-28">{t('revenue', lang)}</span>
                   <span className="text-xs font-semibold text-gray-800">{formatRWF(balance.totalRevenue)}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-28">Collected</span>
+                  <span className="text-xs text-gray-500 w-28">{t('collected', lang)}</span>
                   <span className="text-xs font-semibold text-gray-800">{formatRWF(balance.totalCollected)}</span>
                 </div>
               </div>
@@ -208,7 +208,7 @@ export default function Dashboard() {
       )}
 
       {/* Quick actions */}
-      <div className="section-title">Quick actions</div>
+      <div className="section-title">{t('quick_actions', lang)}</div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
 
         <Link to="/daily-entry" className="card hover:shadow-md transition-shadow cursor-pointer text-center">
@@ -217,8 +217,8 @@ export default function Dashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-gray-900">Daily Entry</p>
-          <p className="text-xs text-gray-500 mt-1">Enter tonight's stock</p>
+          <p className="text-sm font-medium text-gray-900">{t('daily_entry', lang)}</p>
+          <p className="text-xs text-gray-500 mt-1">{t('daily_entry_sub', lang)}</p>
         </Link>
 
         <Link to="/reports" className="card hover:shadow-md transition-shadow cursor-pointer text-center">
@@ -227,8 +227,8 @@ export default function Dashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-gray-900">Reports</p>
-          <p className="text-xs text-gray-500 mt-1">View sales & revenue</p>
+          <p className="text-sm font-medium text-gray-900">{t('reports', lang)}</p>
+          <p className="text-xs text-gray-500 mt-1">{t('reports_sub', lang)}</p>
         </Link>
 
         <Link to="/profit" className="card hover:shadow-md transition-shadow cursor-pointer text-center">
@@ -237,8 +237,8 @@ export default function Dashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-gray-900">Profit</p>
-          <p className="text-xs text-gray-500 mt-1">View profit reports</p>
+          <p className="text-sm font-medium text-gray-900">{t('profit', lang)}</p>
+          <p className="text-xs text-gray-500 mt-1">{t('profit_sub', lang)}</p>
         </Link>
 
         <Link to="/unpaid-debts" className="card hover:shadow-md transition-shadow cursor-pointer text-center">
@@ -247,8 +247,8 @@ export default function Dashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-gray-900">Unpaid Debts</p>
-          <p className="text-xs text-gray-500 mt-1">Track outstanding debts</p>
+          <p className="text-sm font-medium text-gray-900">{t('unpaid_debts', lang)}</p>
+          <p className="text-xs text-gray-500 mt-1">{t('unpaid_debts_sub', lang)}</p>
         </Link>
 
         <Link to="/products" className="card hover:shadow-md transition-shadow cursor-pointer text-center">
@@ -257,8 +257,8 @@ export default function Dashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-gray-900">Products</p>
-          <p className="text-xs text-gray-500 mt-1">Manage your products</p>
+          <p className="text-sm font-medium text-gray-900">{t('products', lang)}</p>
+          <p className="text-xs text-gray-500 mt-1">{t('products_sub', lang)}</p>
         </Link>
 
         <Link to="/prices" className="card hover:shadow-md transition-shadow cursor-pointer text-center">
@@ -267,8 +267,8 @@ export default function Dashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-gray-900">Prices</p>
-          <p className="text-xs text-gray-500 mt-1">Update product prices</p>
+          <p className="text-sm font-medium text-gray-900">{t('prices', lang)}</p>
+          <p className="text-xs text-gray-500 mt-1">{t('prices_sub', lang)}</p>
         </Link>
 
       </div>
@@ -276,11 +276,11 @@ export default function Dashboard() {
   )
 }
 
-function getTimeOfDay(): string {
+function getTimeOfDay(lang: Language): string {
   const hour = new Date().getHours()
-  if (hour < 12) return 'morning'
-  if (hour < 17) return 'afternoon'
-  return 'evening'
+  if (hour < 12) return t('good_morning', lang)
+  if (hour < 17) return t('good_afternoon', lang)
+  return t('good_evening', lang)
 }
 
 function formatDate(date: string): string {

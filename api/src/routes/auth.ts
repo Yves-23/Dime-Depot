@@ -417,4 +417,25 @@ router.put('/change-password', authenticate, async (req: AuthRequest, res: Respo
   }
 })
 
+// Update language preference
+router.put('/language', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { language } = req.body
+
+    if (!['en', 'rw'].includes(language)) {
+      return res.status(400).json({ error: 'Invalid language. Supported: en, rw' })
+    }
+
+    await query(
+      'UPDATE businesses SET language = $1 WHERE id = $2',
+      [language, req.business!.id]
+    )
+
+    return res.json({ message: 'Language updated successfully', language })
+  } catch (error) {
+    console.error('Update language error:', error)
+    return res.status(500).json({ error: 'Something went wrong' })
+  }
+})
+
 export default router
