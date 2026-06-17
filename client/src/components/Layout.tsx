@@ -1,73 +1,9 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { t } from '../lib/i18n'
+import type { Language } from '../lib/i18n'
 import toast from 'react-hot-toast'
-
-const navItems = [
-  {
-    path: '/dashboard',
-    label: 'Dashboard',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-      </svg>
-    ),
-  },
-  {
-    path: '/daily-entry',
-    label: 'Daily Entry',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-      </svg>
-    ),
-  },
-  {
-    path: '/reports',
-    label: 'Reports',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-      </svg>
-    ),
-  },
-  {
-    path: '/profit',
-    label: 'Profit',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-      </svg>
-    ),
-  },
-  {
-    path: '/unpaid-debts',
-    label: 'Unpaid Debts',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-  },
-  {
-    path: '/products',
-    label: 'Products',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-      </svg>
-    ),
-  },
-  {
-    path: '/prices',
-    label: 'Prices',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-      </svg>
-    ),
-  },
-]
 
 const settingsIcon = (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,11 +12,46 @@ const settingsIcon = (
   </svg>
 )
 
+const icons = {
+  dashboard: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+    </svg>
+  ),
+  dailyEntry: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+  ),
+  reports: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  ),
+  profit: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+    </svg>
+  ),
+  unpaidDebts: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
+  products: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+    </svg>
+  ),
+  prices: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+    </svg>
+  ),
+}
+
 // Bottom nav paths
 const bottomPaths = ['/dashboard', '/daily-entry', '/reports']
-
-// Menu drawer items — everything NOT in bottom bar (Settings excluded — pinned separately)
-const menuItems = navItems.filter(item => !bottomPaths.includes(item.path))
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { business, signOut } = useAuth()
@@ -88,9 +59,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
 
+  const lang: Language = (business as any)?.language || 'en'
+
+  // Build nav items dynamically so labels update when language changes
+  const navItems = [
+    { path: '/dashboard', labelKey: 'home' as const, icon: icons.dashboard },
+    { path: '/daily-entry', labelKey: 'daily_entry' as const, icon: icons.dailyEntry },
+    { path: '/reports', labelKey: 'reports' as const, icon: icons.reports },
+    { path: '/profit', labelKey: 'profit' as const, icon: icons.profit },
+    { path: '/unpaid-debts', labelKey: 'unpaid_debts' as const, icon: icons.unpaidDebts },
+    { path: '/products', labelKey: 'products' as const, icon: icons.products },
+    { path: '/prices', labelKey: 'prices' as const, icon: icons.prices },
+  ]
+
+  const menuItems = navItems.filter(item => !bottomPaths.includes(item.path))
+
   function handleSignOut() {
     signOut()
-    toast.success('Signed out successfully')
+    toast.success(lang === 'rw' ? 'Wasohowe neza!' : 'Signed out successfully')
     navigate('/login')
   }
 
@@ -125,7 +111,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               }`}
             >
               {item.icon}
-              {item.label}
+              {t(item.labelKey, lang)}
             </Link>
           ))}
         </nav>
@@ -141,7 +127,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             }`}
           >
             {settingsIcon}
-            Settings
+            {t('settings', lang)}
           </Link>
         </div>
       </aside>
@@ -194,7 +180,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   }`}
                 >
                   {item.icon}
-                  {item.label}
+                  {t(item.labelKey, lang)}
                 </Link>
               ))}
             </div>
@@ -211,7 +197,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 }`}
               >
                 {settingsIcon}
-                Settings
+                {t('settings', lang)}
               </Link>
             </div>
           </div>
@@ -231,7 +217,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
-            <span className="text-[10px] font-medium">Home</span>
+            <span className="text-[10px] font-medium">{t('home', lang)}</span>
           </Link>
 
           <Link
@@ -243,7 +229,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
-            <span className="text-[10px] font-medium">Daily Entry</span>
+            <span className="text-[10px] font-medium">{t('daily_entry', lang)}</span>
           </Link>
 
           <Link
@@ -255,7 +241,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            <span className="text-[10px] font-medium">Reports</span>
+            <span className="text-[10px] font-medium">{t('reports', lang)}</span>
           </Link>
 
           <button
@@ -267,7 +253,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
-            <span className="text-[10px] font-medium">Menu</span>
+            <span className="text-[10px] font-medium">{t('menu', lang)}</span>
           </button>
 
         </div>

@@ -3,15 +3,11 @@ import { useAuth } from '../contexts/AuthContext'
 import { stockAPI, suppliersAPI, productsAPI, pricesAPI, financesAPI } from '../lib/api'
 import type { Product, Supplier, Price } from '../lib/types'
 import {
-  stockToPieces,
-  piecesToStock,
-  formatStock,
-  formatRWF,
-  getPriceForDate,
-  today,
-  yesterday,
-  formatDate,
+  stockToPieces, piecesToStock, formatStock, formatRWF,
+  getPriceForDate, today, yesterday, formatDate,
 } from '../lib/helpers'
+import { t } from '../lib/i18n'
+import type { Language } from '../lib/i18n'
 import toast from 'react-hot-toast'
 
 interface SaleRow {
@@ -55,6 +51,8 @@ function isOlderThan24Hours(dateStr: string): boolean {
 
 export default function Reports() {
   const { business } = useAuth()
+  const lang: Language = (business as any)?.language || 'en'
+
   const [products, setProducts] = useState<Product[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [prices, setPrices] = useState<Price[]>([])
@@ -65,11 +63,8 @@ export default function Reports() {
   const [hasData, setHasData] = useState(false)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
 
-  // Whether user has confirmed editing a past entry in this session
   const [editingUnlocked, setEditingUnlocked] = useState(false)
-  // Show the unlock warning popup
   const [showUnlockWarning, setShowUnlockWarning] = useState(false)
-  // What to do after user confirms unlock
   const [pendingFocusRef, setPendingFocusRef] = useState<(() => void) | null>(null)
 
   const [momo, setMomo] = useState('')
@@ -81,34 +76,22 @@ export default function Reports() {
   const currentSnapshot = JSON.stringify({ momo, cash, debts, expenses })
   const hasUnsavedChanges = savedSnapshot !== currentSnapshot
   const isPast = isOlderThan24Hours(reportDate)
-  // Inputs are editable if: not past, OR past but user confirmed unlock
   const canEdit = !isPast || editingUnlocked
 
-  // Reset unlock when date changes
-  useEffect(() => {
-    setEditingUnlocked(false)
-  }, [reportDate])
-
-  useEffect(() => {
-    if (business) loadBaseData()
-  }, [business])
-
-  useEffect(() => {
-    if (business && products.length > 0) loadReport()
-  }, [reportDate, products])
+  useEffect(() => { setEditingUnlocked(false) }, [reportDate])
+  useEffect(() => { if (business) loadBaseData() }, [business])
+  useEffect(() => { if (business && products.length > 0) loadReport() }, [reportDate, products])
 
   async function loadBaseData() {
     if (!business) return
     try {
       const [productsData, suppliersData, pricesData] = await Promise.all([
-        productsAPI.getAll(),
-        suppliersAPI.getAll(),
-        pricesAPI.getAll(),
+        productsAPI.getAll(), suppliersAPI.getAll(), pricesAPI.getAll(),
       ])
       setProducts(productsData.products.filter((p: Product) => p.is_active))
       setSuppliers(suppliersData.suppliers)
       setPrices(pricesData.prices)
-    } catch (error) {
+    } catch {
       toast.error('Failed to load data')
     }
   }
@@ -133,10 +116,7 @@ export default function Reports() {
         ? financesData.expenses.map((e: any) => ({ id: e.id, description: e.description, amount: String(e.amount) }))
         : [{ description: '', amount: '' }]
 
-      setMomo(newMomo)
-      setCash(newCash)
-      setDebts(newDebts)
-      setExpenses(newExpenses)
+      setMomo(newMomo); setCash(newCash); setDebts(newDebts); setExpenses(newExpenses)
       setSavedSnapshot(JSON.stringify({ momo: newMomo, cash: newCash, debts: newDebts, expenses: newExpenses }))
       setSaveStatus('saved')
 
@@ -144,12 +124,7 @@ export default function Reports() {
       const yesterdayEntriesList = yesterdayEntries.entries
       const receivedList = receivedToday.received
 
-      if (!todayEntriesList?.length) {
-        setSaleRows([])
-        setHasData(false)
-        setLoading(false)
-        return
-      }
+      if (!todayEntriesList?.length) { setSaleRows([]); setHasData(false); setLoading(false); return }
 
       setHasData(true)
       const rows: SaleRow[] = []
@@ -157,11 +132,9 @@ export default function Reports() {
       products.forEach(product => {
         const supplier = suppliers.find(s => s.id === product.supplier_id)
         if (!supplier) return
-
         const todayEntry = todayEntriesList.find((e: any) => e.product_id === product.id)
         const yesterdayEntry = yesterdayEntriesList?.find((e: any) => e.product_id === product.id)
         const received = receivedList?.find((r: any) => r.product_id === product.id)
-
         if (!todayEntry) return
 
         const todayPieces = stockToPieces(todayEntry.casses, todayEntry.halves, todayEntry.pieces, product.pieces_per_casse)
@@ -175,30 +148,15 @@ export default function Reports() {
         const pricePerCasse = getPriceForDate(prices, product.id, reportDate)
         const revenue = pricePerCasse ? (soldPieces / product.pieces_per_casse) * pricePerCasse : 0
 
-        rows.push({
-          product, supplier, soldPieces,
-          soldCasses: sold.casses,
-          soldHalves: sold.halves,
-          soldRemainingPieces: sold.pieces,
-          pricePerCasse, revenue,
-        })
+        rows.push({ product, supplier, soldPieces, soldCasses: sold.casses, soldHalves: sold.halves, soldRemainingPieces: sold.pieces, pricePerCasse, revenue })
       })
-
       setSaleRows(rows)
-    } catch (error) {
-      toast.error('Failed to load report')
-    } finally {
-      setLoading(false)
-    }
+    } catch { toast.error('Failed to load report') }
+    finally { setLoading(false) }
   }
 
-  // Called when user clicks any input on a past entry
   function requestEdit(onConfirmed: () => void) {
-    if (canEdit) {
-      onConfirmed()
-      return
-    }
-    // Show unlock warning, store what to do after confirm
+    if (canEdit) { onConfirmed(); return }
     setPendingFocusRef(() => onConfirmed)
     setShowUnlockWarning(true)
   }
@@ -206,10 +164,7 @@ export default function Reports() {
   function confirmUnlock() {
     setEditingUnlocked(true)
     setShowUnlockWarning(false)
-    if (pendingFocusRef) {
-      setTimeout(() => pendingFocusRef(), 50)
-      setPendingFocusRef(null)
-    }
+    if (pendingFocusRef) { setTimeout(() => pendingFocusRef(), 50); setPendingFocusRef(null) }
   }
 
   function formatNumberInput(value: string): string {
@@ -219,20 +174,12 @@ export default function Reports() {
     return Number(num).toLocaleString()
   }
 
-  function parseNumberInput(value: string): string {
-    return value.replace(/,/g, '')
-  }
-
-  function formatAmount(amount: number): string {
-    return Math.round(amount).toLocaleString()
-  }
+  function parseNumberInput(value: string): string { return value.replace(/,/g, '') }
+  function formatAmount(amount: number): string { return Math.round(amount).toLocaleString() }
 
   function handleSaveClick() {
     if (!business) return
-    if (isPast) {
-      setConfirmAction({ type: 'save_past' })
-      return
-    }
+    if (isPast) { setConfirmAction({ type: 'save_past' }); return }
     doSaveFinances()
   }
 
@@ -243,20 +190,12 @@ export default function Reports() {
       await financesAPI.save(reportDate, {
         momo: parseFloat(parseNumberInput(momo)) || 0,
         cash: parseFloat(parseNumberInput(cash)) || 0,
-        debts: debts.map(d => ({
-          id: d.id,
-          client_name: d.client_name,
-          amount: parseFloat(parseNumberInput(d.amount)) || 0,
-          is_paid: d.is_paid,
-        })),
-        expenses: expenses.map(e => ({
-          description: e.description,
-          amount: parseFloat(parseNumberInput(e.amount)) || 0,
-        })),
+        debts: debts.map(d => ({ id: d.id, client_name: d.client_name, amount: parseFloat(parseNumberInput(d.amount)) || 0, is_paid: d.is_paid })),
+        expenses: expenses.map(e => ({ description: e.description, amount: parseFloat(parseNumberInput(e.amount)) || 0 })),
       })
       setSaveStatus('saved')
       setSavedSnapshot(currentSnapshot)
-      toast.success('Finances saved!')
+      toast.success(t('saved', lang))
       loadReport()
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Something went wrong')
@@ -267,21 +206,11 @@ export default function Reports() {
   async function executeConfirmAction() {
     if (!confirmAction) return
 
-    if (confirmAction.type === 'save_past') {
-      setConfirmAction(null)
-      await doSaveFinances()
-      return
-    }
+    if (confirmAction.type === 'save_past') { setConfirmAction(null); await doSaveFinances(); return }
 
-    if (confirmAction.type === 'delete_debt') {
-      setDebts(debts.filter((_, idx) => idx !== confirmAction.index))
-      setSaveStatus('idle')
-    }
+    if (confirmAction.type === 'delete_debt') { setDebts(debts.filter((_, idx) => idx !== confirmAction.index)); setSaveStatus('idle') }
 
-    if (confirmAction.type === 'delete_expense') {
-      setExpenses(expenses.filter((_, idx) => idx !== confirmAction.index))
-      setSaveStatus('idle')
-    }
+    if (confirmAction.type === 'delete_expense') { setExpenses(expenses.filter((_, idx) => idx !== confirmAction.index)); setSaveStatus('idle') }
 
     if (confirmAction.type === 'toggle_debt') {
       const i = confirmAction.index
@@ -289,24 +218,18 @@ export default function Reports() {
       const updated = [...debts]
       updated[i] = { ...updated[i], is_paid: !updated[i].is_paid }
       setDebts(updated)
-
       if (debt.id) {
         try {
           await financesAPI.updateDebtPaid(debt.id, !debt.is_paid)
           setSavedSnapshot(prev => {
             const parsed = JSON.parse(prev)
-            parsed.debts = parsed.debts.map((d: DebtEntry, idx: number) =>
-              idx === i ? { ...d, is_paid: !d.is_paid } : d
-            )
+            parsed.debts = parsed.debts.map((d: DebtEntry, idx: number) => idx === i ? { ...d, is_paid: !d.is_paid } : d)
             return JSON.stringify(parsed)
           })
-          toast.success(debt.is_paid ? 'Marked as unpaid' : 'Marked as paid ✅')
-        } catch {
-          toast.error('Failed to update debt')
-        }
+          toast.success(debt.is_paid ? t('yes_mark_unpaid', lang) : t('yes_mark_paid', lang))
+        } catch { toast.error('Failed to update debt') }
       }
     }
-
     setConfirmAction(null)
   }
 
@@ -327,27 +250,35 @@ export default function Reports() {
 
   function getConfirmMessage(): { title: string; message: string; confirmLabel: string } {
     if (!confirmAction) return { title: '', message: '', confirmLabel: '' }
-    if (confirmAction.type === 'save_past') {
-      return {
-        title: '⚠️ Saving past finances',
-        message: `You are about to save changes to finances for ${formatDate(reportDate)} — a past date. This will overwrite the previously saved data. Are you sure your changes are correct?`,
-        confirmLabel: 'Yes, save changes',
-      }
+    if (confirmAction.type === 'save_past') return {
+      title: t('save_past_title', lang),
+      message: `${t('save_past_msg', lang)} ${formatDate(reportDate)} ${t('save_past_msg2', lang)}`,
+      confirmLabel: t('yes_save_changes', lang),
     }
     if (confirmAction.type === 'delete_debt') {
       const debt = debts[confirmAction.index]
-      return { title: 'Remove debt?', message: `Remove ${debt.client_name || 'this debt'} (${formatNumberInput(debt.amount)} RWF)?`, confirmLabel: 'Yes, remove' }
+      return {
+        title: t('remove_debt', lang),
+        message: `${t('remove_debt_msg', lang)} ${debt.client_name || ''} (${formatNumberInput(debt.amount)} RWF)?`,
+        confirmLabel: t('yes_remove', lang),
+      }
     }
     if (confirmAction.type === 'delete_expense') {
       const expense = expenses[confirmAction.index]
-      return { title: 'Remove expense?', message: `Remove "${expense.description || 'this expense'}" (${formatNumberInput(expense.amount)} RWF)?`, confirmLabel: 'Yes, remove' }
+      return {
+        title: t('remove_expense', lang),
+        message: `${t('remove_debt_msg', lang)} "${expense.description || ''}" (${formatNumberInput(expense.amount)} RWF)?`,
+        confirmLabel: t('yes_remove', lang),
+      }
     }
     if (confirmAction.type === 'toggle_debt') {
       const debt = debts[confirmAction.index]
       return {
-        title: debt.is_paid ? 'Mark as unpaid?' : 'Mark as paid?',
-        message: debt.is_paid ? `Mark ${debt.client_name} as unpaid again?` : `Confirm ${debt.client_name} paid ${formatNumberInput(debt.amount)} RWF?`,
-        confirmLabel: debt.is_paid ? 'Yes, mark unpaid' : 'Yes, mark paid',
+        title: debt.is_paid ? t('mark_unpaid', lang) : t('mark_paid', lang),
+        message: debt.is_paid
+          ? `${t('yes_mark_unpaid', lang)} ${debt.client_name}?`
+          : `${t('confirm_paid_msg', lang)} ${debt.client_name} ${t('confirm_paid_msg2', lang)} ${formatNumberInput(debt.amount)} RWF?`,
+        confirmLabel: debt.is_paid ? t('yes_mark_unpaid', lang) : t('yes_mark_paid', lang),
       }
     }
     return { title: '', message: '', confirmLabel: '' }
@@ -358,7 +289,7 @@ export default function Reports() {
   return (
     <div>
 
-      {/* Unlock warning popup — shown when clicking any input on past entry */}
+      {/* Unlock warning popup */}
       {showUnlockWarning && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-sm shadow-xl">
@@ -368,20 +299,16 @@ export default function Reports() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-gray-900">Editing past finances</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('editing_past_title', lang)}</h2>
             </div>
             <p className="text-gray-500 text-sm mb-6">
-              You are about to edit finances for <span className="font-semibold text-gray-800">{formatDate(reportDate)}</span> — a past date that has already been saved.
-              <br /><br />
-              Are you sure you want to make changes? A second confirmation will be required before saving.
+              {t('editing_past_msg', lang)} <span className="font-semibold text-gray-800">{formatDate(reportDate)}</span> {t('editing_past_msg2', lang)}
             </p>
             <div className="flex gap-3">
               <button onClick={confirmUnlock} className="flex-1 bg-orange-500 text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-orange-600 transition-colors">
-                Yes, I want to edit
+                {t('yes_edit', lang)}
               </button>
-              <button onClick={() => setShowUnlockWarning(false)} className="btn-secondary flex-1">
-                Cancel
-              </button>
+              <button onClick={() => setShowUnlockWarning(false)} className="btn-secondary flex-1">{t('cancel', lang)}</button>
             </div>
           </div>
         </div>
@@ -401,13 +328,10 @@ export default function Reports() {
             </div>
             <p className="text-gray-500 text-sm mb-6">{confirmMsg.message}</p>
             <div className="flex gap-3">
-              <button
-                onClick={executeConfirmAction}
-                className="flex-1 bg-orange-500 text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-orange-600 transition-colors"
-              >
+              <button onClick={executeConfirmAction} className="flex-1 bg-orange-500 text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-orange-600 transition-colors">
                 {confirmMsg.confirmLabel}
               </button>
-              <button onClick={() => setConfirmAction(null)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={() => setConfirmAction(null)} className="btn-secondary flex-1">{t('cancel', lang)}</button>
             </div>
           </div>
         </div>
@@ -415,16 +339,11 @@ export default function Reports() {
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-        <h1 className="page-title mb-0">Reports</h1>
+        <h1 className="page-title mb-0">{t('reports', lang)}</h1>
         <div>
-          <label className="label text-xs">Report date</label>
-          <input
-            type="date"
-            className="input w-auto text-base"
-            value={reportDate}
-            onChange={e => { setReportDate(e.target.value); setSaveStatus('idle') }}
-            max={today()}
-          />
+          <label className="label text-xs">{t('report_date', lang)}</label>
+          <input type="date" className="input w-auto text-base" value={reportDate}
+            onChange={e => { setReportDate(e.target.value); setSaveStatus('idle') }} max={today()} />
         </div>
       </div>
 
@@ -440,21 +359,22 @@ export default function Reports() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+
             {/* Revenue */}
             <div className="card">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Revenue</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">{t('revenue', lang)}</p>
               {!hasData ? (
-                <p className="text-gray-400 text-sm text-center py-4">No stock entry for {formatDate(reportDate)}</p>
+                <p className="text-gray-400 text-sm text-center py-4">{t('no_stock_entry', lang)} {formatDate(reportDate)}</p>
               ) : (
                 <div className="space-y-2">
                   {supplierRevenues.map(({ supplier, revenue }) => (
                     <div key={supplier.id} className="flex justify-between items-center py-2 border-b border-gray-100">
-                      <span className="text-sm text-gray-700">{supplier.name} Revenue</span>
+                      <span className="text-sm text-gray-700">{supplier.name} {t('revenue', lang)}</span>
                       <span className="font-semibold text-gray-900">{formatRWF(revenue)}</span>
                     </div>
                   ))}
                   <div className="flex justify-between items-center pt-2 border-t-2 border-gray-800">
-                    <span className="font-bold text-gray-900">Total Revenue</span>
+                    <span className="font-bold text-gray-900">{t('total_revenue', lang)}</span>
                     <span className="font-bold text-xl text-gray-900">{formatRWF(totalRevenue)}</span>
                   </div>
                 </div>
@@ -464,107 +384,68 @@ export default function Reports() {
             {/* Money collected */}
             <div className="card">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Money collected</p>
-                {isPast && !editingUnlocked && (
-                  <span className="text-xs text-orange-500 font-semibold">🔒 Click to edit</span>
-                )}
-                {isPast && editingUnlocked && (
-                  <span className="text-xs text-orange-500 font-semibold">⚠️ Editing past date</span>
-                )}
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{t('money_collected', lang)}</p>
+                {isPast && !editingUnlocked && <span className="text-xs text-orange-500 font-semibold">🔒 {t('click_to_edit', lang)}</span>}
+                {isPast && editingUnlocked && <span className="text-xs text-orange-500 font-semibold">⚠️ {t('editing_past', lang)}</span>}
               </div>
 
               {isPast && !editingUnlocked && (
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5 mb-4 text-xs text-orange-700 flex items-center gap-2">
-                  🔒 <span>This is a past date. Click any field to edit — a warning will appear first.</span>
+                  🔒 <span>{t('past_warning_info', lang)}</span>
                 </div>
               )}
-
               {isPast && editingUnlocked && (
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-2.5 mb-4 text-xs text-orange-700 flex items-center gap-2">
-                  ⚠️ <span>You are editing a past date. A confirmation will be required before saving.</span>
+                  ⚠️ <span>{t('past_editing_info', lang)}</span>
                 </div>
               )}
 
               {/* MoMo */}
               <div className="flex items-center justify-between mb-2">
-                <label className="text-sm text-gray-700">MoMo</label>
-                <input
-                  type="text" inputMode="numeric"
+                <label className="text-sm text-gray-700">{t('momo', lang)}</label>
+                <input type="text" inputMode="numeric"
                   className={`input text-right w-40 text-sm ${!canEdit ? 'cursor-pointer bg-orange-50 border-orange-200' : ''}`}
-                  placeholder="0"
-                  value={formatNumberInput(momo)}
-                  readOnly={!canEdit}
-                  onFocus={() => requestEdit(() => {})}
-                  onClick={() => requestEdit(() => {})}
-                  onChange={e => { if (canEdit) { setMomo(parseNumberInput(e.target.value)); setSaveStatus('idle') } }}
-                />
+                  placeholder="0" value={formatNumberInput(momo)} readOnly={!canEdit}
+                  onFocus={() => requestEdit(() => {})} onClick={() => requestEdit(() => {})}
+                  onChange={e => { if (canEdit) { setMomo(parseNumberInput(e.target.value)); setSaveStatus('idle') } }} />
               </div>
 
               {/* Cash */}
               <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
-                <label className="text-sm text-gray-700">Cash</label>
-                <input
-                  type="text" inputMode="numeric"
+                <label className="text-sm text-gray-700">{t('cash', lang)}</label>
+                <input type="text" inputMode="numeric"
                   className={`input text-right w-40 text-sm ${!canEdit ? 'cursor-pointer bg-orange-50 border-orange-200' : ''}`}
-                  placeholder="0"
-                  value={formatNumberInput(cash)}
-                  readOnly={!canEdit}
-                  onFocus={() => requestEdit(() => {})}
-                  onClick={() => requestEdit(() => {})}
-                  onChange={e => { if (canEdit) { setCash(parseNumberInput(e.target.value)); setSaveStatus('idle') } }}
-                />
+                  placeholder="0" value={formatNumberInput(cash)} readOnly={!canEdit}
+                  onFocus={() => requestEdit(() => {})} onClick={() => requestEdit(() => {})}
+                  onChange={e => { if (canEdit) { setCash(parseNumberInput(e.target.value)); setSaveStatus('idle') } }} />
               </div>
 
               {/* Debts */}
               <div className="mb-3 pb-3 border-b border-gray-100">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-gray-700">Debts given</p>
-                  <button
-                    onClick={() => requestEdit(() => { setDebts([...debts, { client_name: '', amount: '', is_paid: false }]); setSaveStatus('idle') })}
-                    className="text-xs text-blue-600 font-medium hover:text-blue-800"
-                  >
-                    + Add client
-                  </button>
+                  <p className="text-sm text-gray-700">{t('debts_given', lang)}</p>
+                  <button onClick={() => requestEdit(() => { setDebts([...debts, { client_name: '', amount: '', is_paid: false }]); setSaveStatus('idle') })}
+                    className="text-xs text-blue-600 font-medium hover:text-blue-800">{t('add_client', lang)}</button>
                 </div>
                 {debts.map((debt, i) => (
                   <div key={i} className="mb-2">
                     <div className="flex gap-2 items-center">
-                      <button
-                        onClick={() => setConfirmAction({ type: 'toggle_debt', index: i })}
-                        className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                          debt.is_paid ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-400'
-                        }`}
-                      >
-                        {debt.is_paid && (
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
+                      <button onClick={() => setConfirmAction({ type: 'toggle_debt', index: i })}
+                        className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${debt.is_paid ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-400'}`}>
+                        {debt.is_paid && <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                       </button>
-                      <input
-                        type="text"
+                      <input type="text"
                         className={`input flex-1 text-sm ${debt.is_paid ? 'line-through bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'} ${!canEdit ? 'cursor-pointer' : ''}`}
-                        placeholder="Client name"
-                        value={debt.client_name}
-                        readOnly={!canEdit}
-                        onClick={() => requestEdit(() => {})}
-                        onFocus={() => requestEdit(() => {})}
-                        onChange={e => { if (canEdit) { const u = [...debts]; u[i] = { ...u[i], client_name: e.target.value }; setDebts(u); setSaveStatus('idle') } }}
-                      />
-                      <input
-                        type="text" inputMode="numeric"
+                        placeholder={t('client_name', lang)} value={debt.client_name} readOnly={!canEdit}
+                        onClick={() => requestEdit(() => {})} onFocus={() => requestEdit(() => {})}
+                        onChange={e => { if (canEdit) { const u = [...debts]; u[i] = { ...u[i], client_name: e.target.value }; setDebts(u); setSaveStatus('idle') } }} />
+                      <input type="text" inputMode="numeric"
                         className={`input w-28 text-right text-sm ${debt.is_paid ? 'line-through bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'} ${!canEdit ? 'cursor-pointer' : ''}`}
-                        placeholder="Amount"
-                        value={formatNumberInput(debt.amount)}
-                        readOnly={!canEdit}
-                        onClick={() => requestEdit(() => {})}
-                        onFocus={() => requestEdit(() => {})}
-                        onChange={e => { if (canEdit) { const u = [...debts]; u[i] = { ...u[i], amount: parseNumberInput(e.target.value) }; setDebts(u); setSaveStatus('idle') } }}
-                      />
-                      <button
-                        onClick={() => requestEdit(() => setConfirmAction({ type: 'delete_debt', index: i }))}
-                        className="text-red-400 hover:text-red-600 font-bold text-lg shrink-0"
-                      >×</button>
+                        placeholder={t('amount', lang)} value={formatNumberInput(debt.amount)} readOnly={!canEdit}
+                        onClick={() => requestEdit(() => {})} onFocus={() => requestEdit(() => {})}
+                        onChange={e => { if (canEdit) { const u = [...debts]; u[i] = { ...u[i], amount: parseNumberInput(e.target.value) }; setDebts(u); setSaveStatus('idle') } }} />
+                      <button onClick={() => requestEdit(() => setConfirmAction({ type: 'delete_debt', index: i }))}
+                        className="text-red-400 hover:text-red-600 font-bold text-lg shrink-0">×</button>
                     </div>
                   </div>
                 ))}
@@ -573,68 +454,46 @@ export default function Reports() {
               {/* Expenses */}
               <div className="mb-3 pb-3 border-b border-gray-100">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm text-gray-700">Expenses</p>
-                  <button
-                    onClick={() => requestEdit(() => { setExpenses([...expenses, { description: '', amount: '' }]); setSaveStatus('idle') })}
-                    className="text-xs text-blue-600 font-medium hover:text-blue-800"
-                  >
-                    + Add expense
-                  </button>
+                  <p className="text-sm text-gray-700">{t('expenses', lang)}</p>
+                  <button onClick={() => requestEdit(() => { setExpenses([...expenses, { description: '', amount: '' }]); setSaveStatus('idle') })}
+                    className="text-xs text-blue-600 font-medium hover:text-blue-800">{t('add_expense', lang)}</button>
                 </div>
                 {expenses.map((expense, i) => (
                   <div key={i} className="flex gap-2 items-center mb-1.5">
-                    <input
-                      type="text"
+                    <input type="text"
                       className={`input flex-1 text-sm ${!canEdit ? 'cursor-pointer' : ''}`}
-                      placeholder="e.g. Transport"
-                      value={expense.description}
-                      readOnly={!canEdit}
-                      onClick={() => requestEdit(() => {})}
-                      onFocus={() => requestEdit(() => {})}
-                      onChange={e => { if (canEdit) { const u = [...expenses]; u[i] = { ...u[i], description: e.target.value }; setExpenses(u); setSaveStatus('idle') } }}
-                    />
-                    <input
-                      type="text" inputMode="numeric"
+                      placeholder={t('expense_placeholder', lang)} value={expense.description} readOnly={!canEdit}
+                      onClick={() => requestEdit(() => {})} onFocus={() => requestEdit(() => {})}
+                      onChange={e => { if (canEdit) { const u = [...expenses]; u[i] = { ...u[i], description: e.target.value }; setExpenses(u); setSaveStatus('idle') } }} />
+                    <input type="text" inputMode="numeric"
                       className={`input w-32 text-right text-sm ${!canEdit ? 'cursor-pointer' : ''}`}
-                      placeholder="Amount"
-                      value={formatNumberInput(expense.amount)}
-                      readOnly={!canEdit}
-                      onClick={() => requestEdit(() => {})}
-                      onFocus={() => requestEdit(() => {})}
-                      onChange={e => { if (canEdit) { const u = [...expenses]; u[i] = { ...u[i], amount: parseNumberInput(e.target.value) }; setExpenses(u); setSaveStatus('idle') } }}
-                    />
+                      placeholder={t('amount', lang)} value={formatNumberInput(expense.amount)} readOnly={!canEdit}
+                      onClick={() => requestEdit(() => {})} onFocus={() => requestEdit(() => {})}
+                      onChange={e => { if (canEdit) { const u = [...expenses]; u[i] = { ...u[i], amount: parseNumberInput(e.target.value) }; setExpenses(u); setSaveStatus('idle') } }} />
                     {expenses.length > 1 && (
-                      <button
-                        onClick={() => requestEdit(() => setConfirmAction({ type: 'delete_expense', index: i }))}
-                        className="text-red-400 hover:text-red-600 font-bold text-lg shrink-0"
-                      >×</button>
+                      <button onClick={() => requestEdit(() => setConfirmAction({ type: 'delete_expense', index: i }))}
+                        className="text-red-400 hover:text-red-600 font-bold text-lg shrink-0">×</button>
                     )}
                   </div>
                 ))}
               </div>
 
               <div className="flex justify-between items-center pt-1 border-t-2 border-gray-800 mb-4">
-                <span className="font-bold text-gray-900">Total</span>
+                <span className="font-bold text-gray-900">{t('total', lang)}</span>
                 <span className="font-bold text-xl text-gray-900">{formatRWF(totalCollected)}</span>
               </div>
 
-              <button
-                onClick={handleSaveClick}
-                disabled={isSaveDisabled}
+              <button onClick={handleSaveClick} disabled={isSaveDisabled}
                 className={`w-full text-sm font-medium px-4 py-2 rounded-lg transition-all ${
-                  saveStatus === 'saved' && !hasUnsavedChanges
-                    ? 'bg-green-100 text-green-700 border border-green-300 cursor-not-allowed'
-                    : saveStatus === 'saving'
-                    ? 'bg-blue-400 text-white cursor-not-allowed'
-                    : isPast
-                    ? 'bg-orange-500 text-white hover:bg-orange-600'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-              >
-                {saveStatus === 'saving' ? 'Saving...'
-                  : saveStatus === 'saved' && !hasUnsavedChanges ? '✅ Saved'
-                  : isPast ? '⚠️ Save past date'
-                  : 'Save finances'}
+                  saveStatus === 'saved' && !hasUnsavedChanges ? 'bg-green-100 text-green-700 border border-green-300 cursor-not-allowed'
+                  : saveStatus === 'saving' ? 'bg-blue-400 text-white cursor-not-allowed'
+                  : isPast ? 'bg-orange-500 text-white hover:bg-orange-600'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}>
+                {saveStatus === 'saving' ? t('saving', lang)
+                  : saveStatus === 'saved' && !hasUnsavedChanges ? t('saved', lang)
+                  : isPast ? t('past_date', lang)
+                  : t('save_finances', lang)}
               </button>
             </div>
           </div>
@@ -645,12 +504,14 @@ export default function Reports() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-gray-500">
-                    {difference === 0 ? 'Net' : difference > 0 ? 'Surplus' : 'Deficit'}
+                    {difference === 0 ? t('balanced', lang) : difference > 0 ? t('surplus', lang) : t('deficit', lang)}
                   </p>
                   <p className={`text-2xl font-bold ${difference === 0 ? 'text-green-700' : difference > 0 ? 'text-blue-700' : 'text-red-700'}`}>
-                    {difference === 0 ? 'Balanced — 0 RWF' : difference > 0 ? `+${formatRWF(difference)}` : `-${formatRWF(Math.abs(difference))}`}
+                    {difference === 0 ? '0 RWF' : difference > 0 ? `+${formatRWF(difference)}` : `-${formatRWF(Math.abs(difference))}`}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">Collected {formatRWF(totalCollected)} · Revenue {formatRWF(totalRevenue)}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {t('collected', lang)} {formatRWF(totalCollected)} · {t('revenue', lang)} {formatRWF(totalRevenue)}
+                  </p>
                 </div>
                 <div className="text-4xl">{difference === 0 ? '⚖️' : difference > 0 ? '📈' : '📉'}</div>
               </div>
@@ -660,8 +521,8 @@ export default function Reports() {
           {/* Sales table */}
           {!hasData ? (
             <div className="card text-center py-12">
-              <p className="text-gray-500 text-lg">No entry found for {formatDate(reportDate)}</p>
-              <p className="text-gray-400 text-sm mt-2">Make sure you have saved a daily entry for this date.</p>
+              <p className="text-gray-500 text-lg">{t('no_entry_found', lang)} {lang === 'en' ? formatDate(reportDate) : ''}</p>
+              <p className="text-gray-400 text-sm mt-2">{t('no_entry_found_sub', lang)}</p>
             </div>
           ) : (
             <>
@@ -672,9 +533,9 @@ export default function Reports() {
                   <div key={supplier.id} className="card mb-4">
                     <div className="section-title">{supplier.name}</div>
                     <div className="grid grid-cols-3 gap-2 px-1 mb-1">
-                      <p className="text-xs font-semibold text-gray-400 uppercase">Product</p>
-                      <p className="text-xs font-semibold text-gray-400 uppercase text-center">Sold</p>
-                      <p className="text-xs font-semibold text-gray-400 uppercase text-right">Revenue</p>
+                      <p className="text-xs font-semibold text-gray-400 uppercase">{t('product', lang)}</p>
+                      <p className="text-xs font-semibold text-gray-400 uppercase text-center">{t('sold', lang)}</p>
+                      <p className="text-xs font-semibold text-gray-400 uppercase text-right">{t('revenue', lang)}</p>
                     </div>
                     <div className="space-y-1">
                       {supplierRows.map(row => (
@@ -682,26 +543,20 @@ export default function Reports() {
                           <div className="min-w-0">
                             <p className="font-medium text-gray-900 text-sm truncate">{row.product.name}</p>
                             <p className="text-xs text-gray-400">
-                              {row.pricePerCasse ? `${formatAmount(row.pricePerCasse)}/cs` : <span className="text-red-500">No price</span>}
+                              {row.pricePerCasse ? `${formatAmount(row.pricePerCasse)}/cs` : <span className="text-red-500">{t('no_price', lang)}</span>}
                             </p>
                           </div>
                           <div className="flex justify-center">
-                            <span className="badge-active text-xs">
-                              {formatStock(row.soldCasses, row.soldHalves, row.soldRemainingPieces)}
-                            </span>
+                            <span className="badge-active text-xs">{formatStock(row.soldCasses, row.soldHalves, row.soldRemainingPieces)}</span>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold text-green-700 text-sm">
-                              {row.revenue > 0 ? formatAmount(row.revenue) : '—'}
-                            </p>
+                            <p className="font-semibold text-green-700 text-sm">{row.revenue > 0 ? formatAmount(row.revenue) : '—'}</p>
                           </div>
                         </div>
                       ))}
                       <div className="grid grid-cols-3 gap-2 items-center pt-2 bg-gray-50 rounded-lg px-2 py-2 mt-1">
-                        <p className="font-semibold text-gray-700 text-sm col-span-2">{supplier.name} subtotal</p>
-                        <p className="font-bold text-gray-900 text-right">
-                          {formatAmount(supplierRows.reduce((sum, r) => sum + r.revenue, 0))}
-                        </p>
+                        <p className="font-semibold text-gray-700 text-sm col-span-2">{supplier.name} {t('subtotal', lang)}</p>
+                        <p className="font-bold text-gray-900 text-right">{formatAmount(supplierRows.reduce((sum, r) => sum + r.revenue, 0))}</p>
                       </div>
                     </div>
                   </div>
@@ -710,11 +565,11 @@ export default function Reports() {
               <div className="card bg-gray-900 text-white">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-400 text-sm">Grand total for {formatDate(reportDate)}</p>
+                    <p className="text-gray-400 text-sm">{t('grand_total', lang)} {formatDate(reportDate)}</p>
                     <p className="text-3xl font-bold mt-1">{formatRWF(totalRevenue)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-gray-400 text-sm">Products sold</p>
+                    <p className="text-gray-400 text-sm">{t('products_sold', lang)}</p>
                     <p className="text-3xl font-bold mt-1">{saleRows.length}</p>
                   </div>
                 </div>

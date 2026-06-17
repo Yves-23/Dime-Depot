@@ -1,6 +1,3 @@
-// Translation system for Dime-Depot
-// Supports: English (en) and Kinyarwanda (rw)
-
 export type Language = 'en' | 'rw'
 
 const translations = {
@@ -66,25 +63,63 @@ const translations = {
     yes_sign_out: 'Yes, sign out',
     cancel: 'Cancel',
 
-    // Reports
+    // Reports — header
+    report_date: 'Report date',
+
+    // Reports — revenue card
+    total_revenue: 'Total Revenue',
+    no_stock_entry: 'No stock entry for',
+    sold: 'Sold',
+    product: 'Product',
+    no_price: 'No price',
+    subtotal: 'subtotal',
+    grand_total: 'Grand total for',
+    products_sold: 'Products sold',
+
+    // Reports — money collected card
     money_collected: 'Money collected',
+    click_to_edit: 'Click to edit',
+    editing_past: 'Editing past date',
+    past_warning_info: 'This is a past date. Click any field to edit — a warning will appear first.',
+    past_editing_info: 'You are editing a past date. A confirmation will be required before saving.',
     momo: 'MoMo',
     cash: 'Cash',
     debts_given: 'Debts given',
     add_client: '+ Add client',
+    client_name: 'Client name',
+    amount: 'Amount',
     expenses: 'Expenses',
     add_expense: '+ Add expense',
+    expense_placeholder: 'e.g. Transport',
     total: 'Total',
     save_finances: 'Save finances',
     saving: 'Saving...',
     saved: '✅ Saved',
     past_date: '⚠️ Save past date',
-    total_revenue: 'Total Revenue',
-    grand_total: 'Grand total for',
-    products_sold: 'Products sold',
+
+    // Reports — empty state
     no_entry_found: 'No entry found for',
     no_entry_found_sub: 'Make sure you have saved a daily entry for this date.',
-    report_date: 'Report date',
+
+    // Reports — popups
+    editing_past_title: 'Editing past finances',
+    editing_past_msg: 'You are about to edit finances for',
+    editing_past_msg2: '— a past date that has already been saved. Are you sure you want to make changes? A second confirmation will be required before saving.',
+    yes_edit: 'Yes, I want to edit',
+    remove_debt: 'Remove debt?',
+    remove_debt_msg: 'Remove',
+    yes_remove: 'Yes, remove',
+    remove_expense: 'Remove expense?',
+    mark_paid: 'Mark as paid?',
+    mark_unpaid: 'Mark as unpaid?',
+    confirm_paid_msg: 'Confirm',
+    confirm_paid_msg2: 'paid',
+    yes_mark_paid: 'Yes, mark paid',
+    yes_mark_unpaid: 'Yes, mark unpaid',
+    save_past_title: '⚠️ Saving past finances',
+    save_past_msg: 'You are about to save changes to finances for',
+    save_past_msg2: '— a past date. This will overwrite the previously saved data. Are you sure your changes are correct?',
+    yes_save_changes: 'Yes, save changes',
 
     // Unpaid debts
     unpaid_debts_title: 'Unpaid Debts',
@@ -162,13 +197,13 @@ const translations = {
     balanced: 'Birahura',
     surplus: 'Ayarenze',
     deficit: 'Ayabuze',
-    revenue: 'Ibyo wacuruje bihwanye',
+    revenue: "Agaciro k'ibyacurujwe",
     collected: 'Amafaranga wakiriye',
 
     // Nav items
     daily_entry: 'Bara Stock yawe',
     daily_entry_sub: 'Injiza stock uraranye',
-    reports: "Raporo y'umunsi",
+    reports: 'Raporo',
     reports_sub: 'Reba ibyo wagurishije, wandike nibyerekeye amafaranga byose',
     profit: 'Inyungu',
     profit_sub: "Reba raporo y'inyungu",
@@ -188,14 +223,14 @@ const translations = {
     account: 'Konti',
     security: 'Umutekano',
     about: 'Ibyerekeye',
-    owner_name: 'Amazina y\'nyir\'uruganda',
-    business_name: 'Izina ry\'uruganda',
+    owner_name: "Amazina y'nyir'uruganda",
+    business_name: "Izina ry'uruganda",
     phone: 'Telefone',
     country: 'Igihugu',
     currency: 'Infaransa',
     change_pin: 'Hindura PIN',
     change_pin_sub: 'Vugurura inimero yawe ya PIN',
-    security_question: 'Ikibazo cy\'umutekano',
+    security_question: "Ikibazo cy'umutekano",
     security_question_sub: 'Nticyashyizweho',
     email_address: 'Imeyili',
     email_not_set: 'Nticyashyizweho — kanda hano kongera',
@@ -204,31 +239,69 @@ const translations = {
     sign_out_confirm: 'Sohoka?',
     sign_out_confirm_msg: 'Urashaka gusohoka mu',
     yes_sign_out: 'Yego, sohoka',
-    cancel: 'Reka',
+    cancel: 'Oya',
 
-    // Reports
-    money_collected: 'Amafaranga yakiriye',
+    // Reports — header
+    report_date: 'Itariki',
+
+    // Reports — revenue card
+    total_revenue: 'Total',
+    no_stock_entry: 'Nta Stock yinjijwe kuri',
+    sold: 'Sold',
+    product: 'Product',
+    no_price: 'No price',
+    subtotal: 'subtotal',
+    grand_total: 'Grand total for',
+    products_sold: 'Products sold',
+
+    // Reports — money collected card
+    money_collected: 'Amafaranga wakiriye',
+    click_to_edit: 'Hindura',
+    editing_past: "Hindura iby'itariki yahise",
+    past_warning_info: 'Iyi tariki yarahise. Kanda aho ushaka guhindura — ibiburira riraza mbere.',
+    past_editing_info: "Uri guhindura iby'itariki yahise. Emeza nimba ubikoze ubishaka.",
     momo: 'MoMo',
-    cash: 'Amafaranga y\'inkono',
-    debts_given: 'Inguzanyo zatanzwe',
-    add_client: '+ Ongeraho umukiriya',
-    expenses: 'Ibyaroherezwa',
-    add_expense: '+ Ongeraho ibyaroherezwa',
-    total: 'Igiteranyo',
-    save_finances: 'Bika amafaranga',
-    saving: 'Biriko birabikwa...',
-    saved: '✅ Byabitswe',
-    past_date: '⚠️ Bika itariki ishize',
-    total_revenue: 'Amafaranga yose yabonetse',
-    grand_total: 'Igiteranyo kinini cya',
-    products_sold: 'Ibicuruzwa byagurishijwe',
-    no_entry_found: 'Nta makuru yabonetse kuwa',
-    no_entry_found_sub: 'Menya neza ko wabitse stock ya uwo munsi.',
-    report_date: 'Itariki ya raporo',
+    cash: 'Cash',
+    debts_given: 'Amadeni watanze',
+    add_client: '+ Ongeraho undi',
+    client_name: 'Izina',
+    amount: 'Amafaranga',
+    expenses: 'Amafaranga yakoreshejwe',
+    add_expense: '+ Ongeraho',
+    expense_placeholder: 'urugero: Kurya',
+    total: 'Total',
+    save_finances: 'Bika',
+    saving: 'Saving...',
+    saved: '✅ Byakunze',
+    past_date: '⚠️ Bika',
+
+    // Reports — empty state
+    no_entry_found: 'Ntiwinjije stock iyi tariki',
+    no_entry_found_sub: 'Genzura neza ko wabitse stock kuri iyi tariki.',
+
+    // Reports — popups
+    editing_past_title: 'Hindura',
+    editing_past_msg: 'Ugiye guhindura ibya',
+    editing_past_msg2: '— iyi tariki yarahise. Urakuri ko ushaka guhindura? Emeza kabiri mbere yo kubika.',
+    yes_edit: 'Yego, ndashaka guhindura',
+    remove_debt: 'Siba ideni',
+    remove_debt_msg: 'Siba',
+    yes_remove: 'Yego, siba',
+    remove_expense: 'Siba, amafaranga yakoreshejwe',
+    mark_paid: 'Yishyuye',
+    mark_unpaid: 'Ntago arishyura',
+    confirm_paid_msg: 'Emeza',
+    confirm_paid_msg2: 'ubyishyu',
+    yes_mark_paid: 'Yego, yishyuye',
+    yes_mark_unpaid: 'Yego, ntago arishyura',
+    save_past_title: '⚠️ Bika iby\'itariki yahise',
+    save_past_msg: 'Ugiye kubika impinduka z\'amafaranga ya',
+    save_past_msg2: '— itariki yahise. Ibi bizasimbura amakuru yabitswe. Urakuri ko ibyo wahinduye ari byo?',
+    yes_save_changes: 'Yego, Bika ibyo wahinduye',
 
     // Unpaid debts
     unpaid_debts_title: 'Amadeni atarishyurwa',
-    search_client: 'Shakisha amazina y\'umukiriya...',
+    search_client: "Shakisha amazina y'umukiriya...",
     all_paid: 'Amadeni yose yarishyuwe!',
     all_paid_sub: 'Nta madeni asigaye ubu.',
     no_client_found: 'Nta mukiriya wabonetse',
@@ -248,7 +321,7 @@ const translations = {
     daily_entry_title: 'Injiza Stock',
     no_products: 'Nta bicuruzwa bihari.',
     no_products_sub: 'Banza wongeraho ibicuruzwa mbere yo gushyira stock.',
-    locked_entry: 'Iyi nyandiko ifunze. Ntishobora guhindurwa nyuma y\'amasaha 24.',
+    locked_entry: "Iyi nyandiko ifunze. Ntishobora guhindurwa nyuma y'amasaha 24.",
     no_yesterday: 'Nta makuru ya ejo. Kugenzura stock ntbishoboka.',
     already_saved: 'Stock yabitswe kuwa',
     update_below: 'Urashobora kuyivugurura hano.',
@@ -261,16 +334,16 @@ const translations = {
 
     // Profit
     profit_title: "Raporo y'Inyungu",
-    profit_formula: 'Inyungu nyayo = (Ibicurujwe - Igiciro cy\'ugura) + Ayarenze - Ayabuze',
+    profit_formula: "Inyungu nyayo = (Ibicurujwe - Igiciro cy'ugura) + Ayarenze - Ayabuze",
     this_week: 'Iki cyumweru',
     this_month: 'Uku kwezi',
     custom_range: 'Hitamo igihe',
-    buying_cost: 'Igiciro cy\'ugura',
+    buying_cost: "Igiciro cy'ugura",
     real_profit: 'Inyungu nyayo',
     gross_profit: 'Inyungu rusange',
     daily_breakdown: 'Raporo ya buri munsi',
     no_data: 'Nta makuru yabonetse muri iki gihe.',
-    no_data_sub: 'Menya neza ko wabitse stock n\'ibiciro by\'ugura.',
+    no_data_sub: "Menya neza ko wabitse stock n'ibiciro by'ugura.",
 
     // Auth
     welcome_back: 'Murakaza neza!',
