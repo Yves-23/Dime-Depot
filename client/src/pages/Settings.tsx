@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { authAPI } from '../lib/api'
 import toast from 'react-hot-toast'
+import { t } from '../lib/i18n'
+import type { Language } from '../lib/i18n'
 
 const SECURITY_QUESTIONS = [
   'What is your business location?',
@@ -44,11 +46,14 @@ function PinDots({ value, match }: { value: string; match?: string }) {
 }
 
 export default function Settings() {
-  const { business, refreshBusiness, signOut } = useAuth()
+  const { business, refreshBusiness, signOut, setBusinessState } = useAuth()
   const navigate = useNavigate()
   const [section, setSection] = useState<Section>('main')
   const [loading, setLoading] = useState(false)
   const [signOutConfirm, setSignOutConfirm] = useState(false)
+  const [langLoading, setLangLoading] = useState(false)
+
+  const lang: Language = (business as any)?.language || 'en'
 
   // Change PIN
   const [currentPin, setCurrentPin] = useState('')
@@ -80,7 +85,7 @@ export default function Settings() {
 
   function handleSignOut() {
     signOut()
-    toast.success('Signed out successfully')
+    toast.success(lang === 'rw' ? 'Wasohowe neza!' : 'Signed out successfully')
     navigate('/login')
   }
 
@@ -140,6 +145,23 @@ export default function Settings() {
     }
   }
 
+  async function handleLanguageChange(newLang: Language) {
+    if (newLang === lang) return
+    setLangLoading(true)
+    try {
+      await authAPI.updateLanguage(newLang)
+      // Update business state immediately so UI reflects change
+      if (setBusinessState && business) {
+        setBusinessState({ ...business, language: newLang } as any)
+      }
+      toast.success(newLang === 'rw' ? 'Ururimi rwahinduwe!' : 'Language updated!')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update language')
+    } finally {
+      setLangLoading(false)
+    }
+  }
+
   return (
     <div>
 
@@ -153,17 +175,17 @@ export default function Settings() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-gray-900">Sign out?</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('sign_out_confirm', lang)}</h2>
             </div>
             <p className="text-gray-500 text-sm mb-6">
-              Are you sure you want to sign out of <span className="font-semibold text-gray-800">{business?.business_name}</span>?
+              {t('sign_out_confirm_msg', lang)} <span className="font-semibold text-gray-800">{business?.business_name}</span>?
             </p>
             <div className="flex gap-3">
               <button onClick={handleSignOut} className="flex-1 bg-red-600 text-white py-2.5 rounded-lg font-semibold text-sm hover:bg-red-700 transition-colors">
-                Yes, sign out
+                {t('yes_sign_out', lang)}
               </button>
               <button onClick={() => setSignOutConfirm(false)} className="btn-secondary flex-1">
-                Cancel
+                {t('cancel', lang)}
               </button>
             </div>
           </div>
@@ -179,45 +201,80 @@ export default function Settings() {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back to Settings
+          {lang === 'rw' ? 'Subira inyuma' : 'Back to Settings'}
         </button>
       )}
 
       {/* MAIN SETTINGS */}
       {section === 'main' && (
         <div>
-          <h1 className="page-title">Settings</h1>
+          <h1 className="page-title">{t('settings_title', lang)}</h1>
 
           {/* Account info */}
           <div className="card mb-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Account</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">{t('account', lang)}</p>
             <div className="space-y-3">
               <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-500">Owner name</span>
+                <span className="text-sm text-gray-500">{t('owner_name', lang)}</span>
                 <span className="text-sm font-medium text-gray-900">{business?.owner_name}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-500">Business name</span>
+                <span className="text-sm text-gray-500">{t('business_name', lang)}</span>
                 <span className="text-sm font-medium text-gray-900">{business?.business_name}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-500">Phone</span>
+                <span className="text-sm text-gray-500">{t('phone', lang)}</span>
                 <span className="text-sm font-medium text-gray-900">{business?.phone}</span>
               </div>
               <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-sm text-gray-500">Country</span>
+                <span className="text-sm text-gray-500">{t('country', lang)}</span>
                 <span className="text-sm font-medium text-gray-900">{business?.country || 'Rwanda'}</span>
               </div>
               <div className="flex justify-between items-center py-2">
-                <span className="text-sm text-gray-500">Currency</span>
-                <span className="text-sm font-medium text-gray-900">{business?.currency || 'RWF'}</span>
+                <span className="text-sm text-gray-500">{t('currency', lang)}</span>
+                <span className="text-sm font-medium text-gray-900">{(business as any)?.currency || 'RWF'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Language toggle */}
+          <div className="card mb-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">{t('language', lang)}</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{t('language', lang)}</p>
+                <p className="text-xs text-gray-400">{t('language_sub', lang)}</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleLanguageChange('en')}
+                  disabled={langLoading}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${
+                    lang === 'en'
+                      ? 'border-blue-600 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  🇬🇧 EN
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('rw')}
+                  disabled={langLoading}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${
+                    lang === 'rw'
+                      ? 'border-blue-600 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  🇷🇼 RW
+                </button>
               </div>
             </div>
           </div>
 
           {/* Security options */}
           <div className="card mb-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Security</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">{t('security', lang)}</p>
             <div className="space-y-1">
 
               <button
@@ -231,8 +288,8 @@ export default function Settings() {
                     </svg>
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-medium text-gray-900">Change PIN</p>
-                    <p className="text-xs text-gray-400">Update your 4-digit PIN</p>
+                    <p className="text-sm font-medium text-gray-900">{t('change_pin', lang)}</p>
+                    <p className="text-xs text-gray-400">{t('change_pin_sub', lang)}</p>
                   </div>
                 </div>
                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -251,8 +308,8 @@ export default function Settings() {
                     </svg>
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-medium text-gray-900">Security question</p>
-                    <p className="text-xs text-gray-400 truncate max-w-[180px]">{business?.security_question || 'Not set'}</p>
+                    <p className="text-sm font-medium text-gray-900">{t('security_question', lang)}</p>
+                    <p className="text-xs text-gray-400 truncate max-w-[180px]">{business?.security_question || t('security_question_sub', lang)}</p>
                   </div>
                 </div>
                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -271,8 +328,8 @@ export default function Settings() {
                     </svg>
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-medium text-gray-900">Email address</p>
-                    <p className="text-xs text-gray-400">{business?.email || 'Not set — tap to add'}</p>
+                    <p className="text-sm font-medium text-gray-900">{t('email_address', lang)}</p>
+                    <p className="text-xs text-gray-400">{business?.email || t('email_not_set', lang)}</p>
                   </div>
                 </div>
                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -285,7 +342,7 @@ export default function Settings() {
 
           {/* About */}
           <div className="card mb-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">About</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">{t('about', lang)}</p>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
                 <span className="text-white font-bold">D</span>
@@ -306,7 +363,7 @@ export default function Settings() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
-              Sign out
+              {t('sign_out', lang)}
             </button>
           </div>
         </div>
@@ -315,55 +372,36 @@ export default function Settings() {
       {/* CHANGE PIN */}
       {section === 'change_pin' && (
         <div>
-          <h1 className="page-title">Change PIN</h1>
-
+          <h1 className="page-title">{t('change_pin', lang)}</h1>
           <div className="card space-y-6">
             <div>
-              <label className="label">Current PIN</label>
+              <label className="label">{lang === 'rw' ? 'PIN ya none' : 'Current PIN'}</label>
               <PinDots value={currentPin} />
-              <input
-                type="number"
-                className="input text-center text-3xl py-4 w-full tracking-widest"
-                placeholder="••••"
-                value={currentPin}
-                onChange={e => handlePinInput(e.target.value, setCurrentPin)}
-                autoFocus
-              />
+              <input type="number" className="input text-center text-3xl py-4 w-full tracking-widest"
+                placeholder="••••" value={currentPin}
+                onChange={e => handlePinInput(e.target.value, setCurrentPin)} autoFocus />
             </div>
-
             <div>
-              <label className="label">New PIN</label>
+              <label className="label">{lang === 'rw' ? 'PIN nshya' : 'New PIN'}</label>
               <PinDots value={newPin} />
-              <input
-                type="number"
-                className="input text-center text-3xl py-4 w-full tracking-widest"
-                placeholder="••••"
-                value={newPin}
-                onChange={e => handlePinInput(e.target.value, setNewPin)}
-              />
+              <input type="number" className="input text-center text-3xl py-4 w-full tracking-widest"
+                placeholder="••••" value={newPin}
+                onChange={e => handlePinInput(e.target.value, setNewPin)} />
             </div>
-
             <div>
-              <label className="label">Confirm new PIN</label>
+              <label className="label">{lang === 'rw' ? 'Emeza PIN nshya' : 'Confirm new PIN'}</label>
               <PinDots value={confirmPin} match={newPin} />
-              <input
-                type="number"
-                className="input text-center text-3xl py-4 w-full tracking-widest"
-                placeholder="••••"
-                value={confirmPin}
-                onChange={e => handlePinInput(e.target.value, setConfirmPin)}
-              />
+              <input type="number" className="input text-center text-3xl py-4 w-full tracking-widest"
+                placeholder="••••" value={confirmPin}
+                onChange={e => handlePinInput(e.target.value, setConfirmPin)} />
               {confirmPin.length === 4 && confirmPin !== newPin && (
-                <p className="text-red-500 text-sm text-center mt-2">PINs do not match</p>
+                <p className="text-red-500 text-sm text-center mt-2">
+                  {lang === 'rw' ? 'PIN ntizihura' : 'PINs do not match'}
+                </p>
               )}
             </div>
-
-            <button
-              onClick={handleChangePin}
-              disabled={loading}
-              className="btn-primary w-full py-3"
-            >
-              {loading ? 'Saving...' : 'Change PIN'}
+            <button onClick={handleChangePin} disabled={loading} className="btn-primary w-full py-3">
+              {loading ? (lang === 'rw' ? 'Birabikwa...' : 'Saving...') : (lang === 'rw' ? 'Hindura PIN' : 'Change PIN')}
             </button>
           </div>
         </div>
@@ -372,62 +410,44 @@ export default function Settings() {
       {/* SECURITY QUESTION */}
       {section === 'security_question' && (
         <div>
-          <h1 className="page-title">Security Question</h1>
-
+          <h1 className="page-title">{t('security_question', lang)}</h1>
           <div className="card space-y-4">
             {business?.security_question && (
               <div className="bg-gray-50 rounded-lg p-3">
-                <p className="text-xs text-gray-400 mb-1">Current question</p>
+                <p className="text-xs text-gray-400 mb-1">{lang === 'rw' ? 'Ikibazo cy\'ubu' : 'Current question'}</p>
                 <p className="text-sm font-medium text-gray-800">{business.security_question}</p>
               </div>
             )}
-
             <div>
-              <label className="label">Verify current answer first</label>
-              <input
-                type="text"
-                className="input w-full"
-                placeholder="Your current answer"
-                value={currentAnswer}
-                onChange={e => setCurrentAnswer(e.target.value)}
-                autoFocus
-              />
+              <label className="label">{lang === 'rw' ? 'Banza emeza igisubizo cy\'ubu' : 'Verify current answer first'}</label>
+              <input type="text" className="input w-full"
+                placeholder={lang === 'rw' ? 'Igisubizo cy\'ubu' : 'Your current answer'}
+                value={currentAnswer} onChange={e => setCurrentAnswer(e.target.value)} autoFocus />
             </div>
-
             <div>
-              <label className="label">New security question</label>
-              <select
-                className="input w-full"
-                value={newQuestion}
-                onChange={e => setNewQuestion(e.target.value)}
-              >
-                <option value="">Select a question...</option>
+              <label className="label">{lang === 'rw' ? 'Ikibazo gishya' : 'New security question'}</label>
+              <select className="input w-full" value={newQuestion} onChange={e => setNewQuestion(e.target.value)}>
+                <option value="">{lang === 'rw' ? 'Hitamo ikibazo...' : 'Select a question...'}</option>
                 {SECURITY_QUESTIONS.map(q => (
                   <option key={q} value={q}>{q}</option>
                 ))}
               </select>
             </div>
-
             {newQuestion && (
               <div>
-                <label className="label">New answer</label>
-                <input
-                  type="text"
-                  className="input w-full"
-                  placeholder="Your new answer"
-                  value={newAnswer}
-                  onChange={e => setNewAnswer(e.target.value)}
-                />
-                <p className="text-xs text-gray-400 mt-1">Remember this answer exactly as you type it.</p>
+                <label className="label">{lang === 'rw' ? 'Igisubizo gishya' : 'New answer'}</label>
+                <input type="text" className="input w-full"
+                  placeholder={lang === 'rw' ? 'Igisubizo cyawe gishya' : 'Your new answer'}
+                  value={newAnswer} onChange={e => setNewAnswer(e.target.value)} />
+                <p className="text-xs text-gray-400 mt-1">
+                  {lang === 'rw' ? 'Ibuka igisubizo nkuko ubitsemo.' : 'Remember this answer exactly as you type it.'}
+                </p>
               </div>
             )}
-
-            <button
-              onClick={handleUpdateSecurityQuestion}
-              disabled={loading}
-              className="btn-primary w-full py-3"
-            >
-              {loading ? 'Saving...' : 'Update security question'}
+            <button onClick={handleUpdateSecurityQuestion} disabled={loading} className="btn-primary w-full py-3">
+              {loading
+                ? (lang === 'rw' ? 'Birabikwa...' : 'Saving...')
+                : (lang === 'rw' ? 'Vugurura ikibazo' : 'Update security question')}
             </button>
           </div>
         </div>
@@ -436,33 +456,24 @@ export default function Settings() {
       {/* EMAIL */}
       {section === 'email' && (
         <div>
-          <h1 className="page-title">Email Address</h1>
-
+          <h1 className="page-title">{t('email_address', lang)}</h1>
           <div className="card space-y-4">
             <p className="text-sm text-gray-500">
               {business?.email
-                ? 'Update your email address. This is used as an extra way to reset your PIN.'
-                : 'Add an email address as an extra way to reset your PIN if you forget it.'}
+                ? (lang === 'rw' ? 'Vugurura imeyili yawe.' : 'Update your email address. This is used as an extra way to reset your PIN.')
+                : (lang === 'rw' ? 'Ongeraho imeyili kugirango uzabashe gusubiramo PIN.' : 'Add an email address as an extra way to reset your PIN if you forget it.')}
             </p>
-
             <div>
-              <label className="label">Email address</label>
-              <input
-                type="email"
-                className="input w-full text-lg py-3"
-                placeholder="your@email.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                autoFocus
-              />
+              <label className="label">{t('email_address', lang)}</label>
+              <input type="email" className="input w-full text-lg py-3" placeholder="your@email.com"
+                value={email} onChange={e => setEmail(e.target.value)} autoFocus />
             </div>
-
-            <button
-              onClick={handleUpdateEmail}
-              disabled={loading}
-              className="btn-primary w-full py-3"
-            >
-              {loading ? 'Saving...' : business?.email ? 'Update email' : 'Add email'}
+            <button onClick={handleUpdateEmail} disabled={loading} className="btn-primary w-full py-3">
+              {loading
+                ? (lang === 'rw' ? 'Birikubikwa...' : 'Saving...')
+                : business?.email
+                  ? (lang === 'rw' ? 'Vugurura imeli' : 'Update email')
+                  : (lang === 'rw' ? 'Ongeraho imeli' : 'Add email')}
             </button>
           </div>
         </div>

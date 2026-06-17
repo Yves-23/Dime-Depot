@@ -438,4 +438,17 @@ router.put('/language', authenticate, async (req: AuthRequest, res: Response) =>
   }
 })
 
+router.put('/language', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { language } = req.body
+    if (!['en', 'rw'].includes(language)) {
+      return res.status(400).json({ error: 'Invalid language' })
+    }
+    await query('UPDATE businesses SET language = $1 WHERE id = $2', [language, req.business!.id])
+    return res.json({ message: 'Language updated', language })
+  } catch (error) {
+    return res.status(500).json({ error: 'Something went wrong' })
+  }
+})
+
 export default router

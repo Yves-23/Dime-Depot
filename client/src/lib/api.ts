@@ -93,6 +93,9 @@ export const authAPI = {
 
   resetPinSet: (reset_token: string, new_pin: string) =>
     request('POST', '/api/auth/reset-pin/set', { reset_token, new_pin }, false),
+
+  updateLanguage: (language: string) =>
+  request('PUT', '/api/auth/language', { language }),
 }
 
 // Admin API

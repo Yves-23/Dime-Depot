@@ -13,6 +13,7 @@ export async function createTables() {
       location TEXT,
       country TEXT DEFAULT 'Rwanda',
       currency TEXT DEFAULT 'RWF',
+      language TEXT DEFAULT 'en',
       password_hash TEXT,
       pin_hash TEXT,
       security_question TEXT,
@@ -30,6 +31,7 @@ export async function createTables() {
   await query(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS security_answer_hash TEXT`)
   await query(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS country TEXT DEFAULT 'Rwanda'`)
   await query(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'RWF'`)
+  await query(`ALTER TABLE businesses ADD COLUMN IF NOT EXISTS language TEXT DEFAULT 'en'`)
 
   // Make email and password_hash optional for existing accounts
   await query(`ALTER TABLE businesses ALTER COLUMN email DROP NOT NULL`)
