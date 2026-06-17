@@ -67,44 +67,46 @@ router.post('/:date', authenticate, async (req: AuthRequest, res: Response) => {
       [req.business!.id, date, parseFloat(momo) || 0, parseFloat(cash) || 0]
     )
 
-    // Delete old debts and re-insert — but preserve amount_paid and smart is_paid
+    // STEP 1: Fetch ALL existing debts BEFORE deleting
+    const existingResult = await query(
+      'SELECT id, amount_paid, is_paid FROM daily_debts WHERE business_id = $1 AND entry_date = $2',
+      [req.business!.id, date]
+    )
+
+    const existingMap: Record<string, { amount_paid: number; is_paid: boolean }> = {}
+    for (const row of existingResult.rows) {
+      existingMap[row.id] = {
+        amount_paid: parseFloat(row.amount_paid || 0),
+        is_paid: row.is_paid === true,
+      }
+    }
+
+    // STEP 2: Delete old debts
     await query(
       'DELETE FROM daily_debts WHERE business_id = $1 AND entry_date = $2',
       [req.business!.id, date]
     )
 
+    // STEP 3: Reinsert with preserved amount_paid and accurate is_paid
     if (debts && debts.length > 0) {
       const validDebts = debts.filter((d: any) => d.client_name?.trim() && parseFloat(d.amount) > 0)
       for (const debt of validDebts) {
-        let amountPaid = 0
-
-        // If debt has an existing id, preserve its amount_paid
-        if (debt.id) {
-          const existing = await query(
-            'SELECT amount_paid, is_paid FROM daily_debts WHERE id = $1 AND business_id = $2',
-            [debt.id, req.business!.id]
-          )
-          if (existing.rows.length > 0) {
-            amountPaid = parseFloat(existing.rows[0].amount_paid || 0)
-          }
-        }
-
         const newAmount = parseFloat(debt.amount)
 
-        // Smart is_paid logic:
-        // 1. If amount_paid >= new amount → fully paid (overpaid or exact)
-        // 2. If was marked fully paid with no partial payments tracked → keep as paid
-        // 3. Otherwise → reopen with remaining balance
-        let isPaid: boolean
-        if (amountPaid >= newAmount) {
-          isPaid = true
-        } else if (debt.is_paid && amountPaid === 0) {
-          // Was marked fully paid manually (no partial payments recorded) → keep paid
-          isPaid = true
-        } else {
-          // Has outstanding balance → reopen
-          isPaid = false
+        // Restore amount_paid from before deletion
+        let amountPaid = 0
+        if (debt.id && existingMap[debt.id]) {
+          amountPaid = existingMap[debt.id].amount_paid
         }
+
+        // Accurate is_paid: always based on whether amount_paid covers the new amount
+        // This handles ALL cases:
+        // - No payments yet → not paid
+        // - Partial payments → check if they cover new amount
+        // - Fully paid before → check if amount_paid still covers new amount
+        // - Corrected to higher amount → reopens with remaining balance
+        // - Corrected to lower amount → stays paid if amount_paid >= new amount
+        const isPaid = amountPaid >= newAmount
 
         await query(
           `INSERT INTO daily_debts (business_id, entry_date, client_name, amount, amount_paid, is_paid)
@@ -184,7 +186,6 @@ router.patch('/debts/:id/partial-pay', authenticate, async (req: AuthRequest, re
       return res.status(400).json({ error: 'Payment amount must be greater than 0' })
     }
 
-    // Get current debt
     const current = await query(
       'SELECT * FROM daily_debts WHERE id = $1 AND business_id = $2',
       [id, req.business!.id]
@@ -200,7 +201,6 @@ router.patch('/debts/:id/partial-pay', authenticate, async (req: AuthRequest, re
     const newPayment = parseFloat(amount)
     const newAmountPaid = alreadyPaid + newPayment
 
-    // Cap at total amount
     const finalAmountPaid = Math.min(newAmountPaid, totalAmount)
     const isPaid = finalAmountPaid >= totalAmount
 
