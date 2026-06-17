@@ -244,6 +244,7 @@ export default function Reports() {
         momo: parseFloat(parseNumberInput(momo)) || 0,
         cash: parseFloat(parseNumberInput(cash)) || 0,
         debts: debts.map(d => ({
+          id: d.id,
           client_name: d.client_name,
           amount: parseFloat(parseNumberInput(d.amount)) || 0,
           is_paid: d.is_paid,

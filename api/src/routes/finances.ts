@@ -58,6 +58,7 @@ router.post('/:date', authenticate, async (req: AuthRequest, res: Response) => {
     const { date } = req.params
     const { momo, cash, debts, expenses } = req.body
 
+    // Upsert momo and cash
     await query(
       `INSERT INTO daily_finances (business_id, entry_date, momo, cash)
        VALUES ($1, $2, $3, $4)
@@ -66,6 +67,7 @@ router.post('/:date', authenticate, async (req: AuthRequest, res: Response) => {
       [req.business!.id, date, parseFloat(momo) || 0, parseFloat(cash) || 0]
     )
 
+    // Delete old debts and re-insert — but preserve amount_paid and smart is_paid
     await query(
       'DELETE FROM daily_debts WHERE business_id = $1 AND entry_date = $2',
       [req.business!.id, date]
@@ -74,14 +76,45 @@ router.post('/:date', authenticate, async (req: AuthRequest, res: Response) => {
     if (debts && debts.length > 0) {
       const validDebts = debts.filter((d: any) => d.client_name?.trim() && parseFloat(d.amount) > 0)
       for (const debt of validDebts) {
+        let amountPaid = 0
+
+        // If debt has an existing id, preserve its amount_paid
+        if (debt.id) {
+          const existing = await query(
+            'SELECT amount_paid, is_paid FROM daily_debts WHERE id = $1 AND business_id = $2',
+            [debt.id, req.business!.id]
+          )
+          if (existing.rows.length > 0) {
+            amountPaid = parseFloat(existing.rows[0].amount_paid || 0)
+          }
+        }
+
+        const newAmount = parseFloat(debt.amount)
+
+        // Smart is_paid logic:
+        // 1. If amount_paid >= new amount → fully paid (overpaid or exact)
+        // 2. If was marked fully paid with no partial payments tracked → keep as paid
+        // 3. Otherwise → reopen with remaining balance
+        let isPaid: boolean
+        if (amountPaid >= newAmount) {
+          isPaid = true
+        } else if (debt.is_paid && amountPaid === 0) {
+          // Was marked fully paid manually (no partial payments recorded) → keep paid
+          isPaid = true
+        } else {
+          // Has outstanding balance → reopen
+          isPaid = false
+        }
+
         await query(
-          `INSERT INTO daily_debts (business_id, entry_date, client_name, amount, is_paid)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [req.business!.id, date, debt.client_name.trim(), parseFloat(debt.amount), debt.is_paid || false]
+          `INSERT INTO daily_debts (business_id, entry_date, client_name, amount, amount_paid, is_paid)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [req.business!.id, date, debt.client_name.trim(), newAmount, amountPaid, isPaid]
         )
       }
     }
 
+    // Delete old expenses and re-insert
     await query(
       'DELETE FROM daily_expenses WHERE business_id = $1 AND entry_date = $2',
       [req.business!.id, date]
@@ -98,6 +131,7 @@ router.post('/:date', authenticate, async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Return updated data
     const [financesData, debtsData, expensesData] = await Promise.all([
       query('SELECT * FROM daily_finances WHERE business_id = $1 AND entry_date = $2', [req.business!.id, date]),
       query('SELECT * FROM daily_debts WHERE business_id = $1 AND entry_date = $2 ORDER BY created_at ASC', [req.business!.id, date]),
@@ -171,7 +205,7 @@ router.patch('/debts/:id/partial-pay', authenticate, async (req: AuthRequest, re
     const isPaid = finalAmountPaid >= totalAmount
 
     const result = await query(
-      `UPDATE daily_debts 
+      `UPDATE daily_debts
        SET amount_paid = $1, is_paid = $2
        WHERE id = $3 AND business_id = $4
        RETURNING *`,
