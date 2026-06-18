@@ -285,4 +285,28 @@ router.delete('/businesses/:id', authenticate, requireAdmin, async (req: AuthReq
   }
 })
 
+// Reset a user's PIN
+router.put('/businesses/:id/reset-pin', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params
+    const { new_pin } = req.body
+
+    if (!new_pin || !/^\d{4}$/.test(new_pin)) {
+      return res.status(400).json({ error: 'PIN must be exactly 4 digits' })
+    }
+
+    const business = await query('SELECT is_admin FROM businesses WHERE id = $1', [id])
+    if (business.rows.length === 0) return res.status(404).json({ error: 'Business not found' })
+    if (business.rows[0].is_admin) return res.status(400).json({ error: 'Cannot reset admin PIN' })
+
+    const pin_hash = await bcrypt.hash(new_pin, 12)
+    await query('UPDATE businesses SET pin_hash = $1 WHERE id = $2', [pin_hash, id])
+
+    return res.json({ message: 'PIN reset successfully' })
+  } catch (error) {
+    console.error('Reset PIN error:', error)
+    return res.status(500).json({ error: 'Something went wrong' })
+  }
+})
+
 export default router
