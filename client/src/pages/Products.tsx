@@ -279,7 +279,7 @@ export default function Products() {
           return (
             <div key={supplier.id} className="card">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">{supplier.name} products</h3>
+                <h3 className="text-lg font-semibold text-gray-800">{supplier.name}</h3>
                 <button
                   onClick={() => { setShowAddProduct(supplier.id); setNewProduct({ name: '', supplier_id: supplier.id, pieces_per_casse: '' }) }}
                   className="btn-primary text-sm"

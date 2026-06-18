@@ -235,7 +235,7 @@ const translations = {
     collected: 'Amafaranga wakiriye',
 
     // Nav
-    daily_entry: 'Injiza stock buri munsi',
+    daily_entry: 'Injiza stock',
     daily_entry_sub: 'Injiza stock uraranye',
     reports: 'Raporo',
     reports_sub: 'Reba ibyo wagurishije, wandike nibyerekeye amafaranga byose',
@@ -250,14 +250,14 @@ const translations = {
     settings: 'Igenamiterere',
     sign_out: 'Sohoka',
     home: 'Ahabanza',
-    menu: 'Menyu',
+    menu: 'Ibindi',
 
     // Settings
     settings_title: 'Igenamiterere',
     account: 'Konti',
     security: 'Umutekano',
     about: 'Ibyerekeye',
-    owner_name: "Amazina y'nyir'uruganda",
+    owner_name: "Amazina ya nyir'uruganda",
     business_name: "Izina ry'uruganda",
     phone: 'Telefone',
     country: 'Igihugu',
@@ -383,7 +383,7 @@ const translations = {
     welcome_back: 'Ikaze nanone',
     enter_phone_pin: "Andika nomero ya telefone n'umubar w'ibanga",
     phone_number: 'Nomero ya telefone',
-    pin: "Umubare w'ibanga",
+    pin: "Andika mubare w'ibanga hano",
     forgot_pin: "Nibagiwe umubare w'ibanga",
     sign_in: 'Injira',
     signing_in: 'Signing in...',
