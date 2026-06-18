@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authAPI, setToken, setBusiness } from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
+import { t } from '../lib/i18n'
+import type { Language } from '../lib/i18n'
 import toast from 'react-hot-toast'
 
 const COUNTRIES = [
@@ -17,6 +19,14 @@ const COUNTRIES = [
   { name: 'Ethiopia', flag: '🇪🇹', code: '+251' },
 ]
 
+// On login page we don't know the user's language yet
+// Check localStorage for last used language, fallback to 'en'
+function getInitialLang(): Language {
+  const stored = localStorage.getItem('dime-depot-lang')
+  if (stored === 'rw' || stored === 'en') return stored
+  return 'en'
+}
+
 export default function Login() {
   const navigate = useNavigate()
   const { setBusinessState } = useAuth()
@@ -24,6 +34,7 @@ export default function Login() {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [pin, setPin] = useState('')
   const [loading, setLoading] = useState(false)
+  const [lang, setLang] = useState<Language>(getInitialLang())
 
   function handlePinInput(value: string) {
     const digits = value.replace(/\D/g, '').slice(0, 4)
@@ -34,9 +45,15 @@ export default function Login() {
     return `${phoneCode}${phoneNumber.replace(/\s/g, '')}`
   }
 
+  function toggleLang() {
+    const newLang = lang === 'en' ? 'rw' : 'en'
+    setLang(newLang)
+    localStorage.setItem('dime-depot-lang', newLang)
+  }
+
   async function handleLogin() {
-    if (!phoneNumber.trim()) { toast.error('Please enter your phone number'); return }
-    if (!/^\d{4}$/.test(pin)) { toast.error('PIN must be 4 digits'); return }
+    if (!phoneNumber.trim()) { toast.error(lang === 'rw' ? 'Andika nomero ya telefone' : 'Please enter your phone number'); return }
+    if (!/^\d{4}$/.test(pin)) { toast.error(lang === 'rw' ? "Umubare w'ibanga ni imibare 4" : 'PIN must be 4 digits'); return }
 
     setLoading(true)
     try {
@@ -44,6 +61,10 @@ export default function Login() {
       setToken(data.token)
       setBusiness(data.business)
       if (setBusinessState) setBusinessState(data.business)
+      // Save language from account
+      if (data.business?.language) {
+        localStorage.setItem('dime-depot-lang', data.business.language)
+      }
 
       if (data.business.is_admin) {
         navigate('/admin')
@@ -68,26 +89,34 @@ export default function Login() {
 
           <div className="px-8 py-8">
 
-            {/* Logo */}
-            <div className="flex items-center gap-2.5 mb-8">
-              <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-lg">D</span>
+            {/* Logo + lang toggle */}
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">D</span>
+                </div>
+                <span className="text-xl font-bold text-gray-900">Dime-Depot</span>
               </div>
-              <span className="text-xl font-bold text-gray-900">Dime-Depot</span>
+              <button
+                onClick={toggleLang}
+                className="text-xs font-semibold border border-gray-200 rounded-lg px-3 py-1.5 text-gray-500 hover:bg-gray-50 transition-colors"
+              >
+                {lang === 'en' ? '🇷🇼 RW' : '🇬🇧 EN'}
+              </button>
             </div>
 
             {/* Title */}
             <div className="mb-7">
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Welcome back!</h2>
-              <p className="text-gray-400 text-sm">Enter your phone number and PIN to continue.</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">{t('welcome_back', lang)}</h2>
+              <p className="text-gray-400 text-sm">{t('enter_phone_pin', lang)}</p>
             </div>
 
             {/* Form */}
             <div className="space-y-5">
 
-              {/* Phone with country code */}
+              {/* Phone */}
               <div>
-                <label className="label">Phone number</label>
+                <label className="label">{t('phone_number', lang)}</label>
                 <div className="flex gap-2">
                   <div className="relative">
                     <select
@@ -117,7 +146,7 @@ export default function Login() {
 
               {/* PIN */}
               <div>
-                <label className="label">PIN</label>
+                <label className="label">{t('pin', lang)}</label>
                 <div className="flex gap-2.5 mb-3">
                   {[0, 1, 2, 3].map(i => (
                     <div key={i} className={`flex-1 h-12 rounded-xl border-2 flex items-center justify-center text-xl font-bold transition-all ${
@@ -130,7 +159,7 @@ export default function Login() {
                 <input
                   type="number"
                   className="input w-full text-center text-2xl tracking-widest"
-                  placeholder="Enter PIN"
+                  placeholder={t('pin', lang)}
                   value={pin}
                   onChange={e => handlePinInput(e.target.value)}
                 />
@@ -138,18 +167,20 @@ export default function Login() {
 
               <div className="flex justify-end">
                 <Link to="/reset-pin" className="text-blue-600 text-sm font-medium hover:text-blue-700 transition-colors">
-                  Forgot PIN?
+                  {t('forgot_pin', lang)}
                 </Link>
               </div>
             </div>
 
             <button onClick={handleLogin} disabled={loading} className="btn-primary w-full py-3 mt-6">
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? t('signing_in', lang) : t('sign_in', lang)}
             </button>
 
             <p className="text-center text-gray-400 text-sm mt-5">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-blue-600 font-medium hover:text-blue-700 transition-colors">Register</Link>
+              {t('no_account', lang)}{' '}
+              <Link to="/register" className="text-blue-600 font-medium hover:text-blue-700 transition-colors">
+                {t('register', lang)}
+              </Link>
             </p>
 
           </div>

@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { stockAPI, suppliersAPI, productsAPI } from '../lib/api'
 import type { Product, Supplier, StockEntry } from '../lib/types'
 import { stockToPieces, formatStock, today, yesterday } from '../lib/helpers'
+import { t } from '../lib/i18n'
+import type { Language } from '../lib/i18n'
 import toast from 'react-hot-toast'
 
 interface StockInputRow {
@@ -45,6 +47,8 @@ function isLocked(dateStr: string): boolean {
 
 export default function DailyEntry() {
   const { business } = useAuth()
+  const lang: Language = (business as any)?.language || 'en'
+
   const [rows, setRows] = useState<StockInputRow[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
@@ -162,7 +166,7 @@ export default function DailyEntry() {
     }
     setRows(updated)
     setReceivedPopup(null)
-    toast.success('Received stock added! Click Save to confirm.')
+    toast.success(lang === 'rw' ? 'Byongewe! Kanda Bika gukomeza.' : 'Received stock added! Click Save to confirm.')
   }
 
   function validateStock(): OverstockWarning | null {
@@ -173,34 +177,18 @@ export default function DailyEntry() {
       if (!yesterdayEntry) continue
 
       const ppc = row.product.pieces_per_casse
-
-      const yesterdayPieces = stockToPieces(
-        yesterdayEntry.casses, yesterdayEntry.halves, yesterdayEntry.pieces, ppc
-      )
+      const yesterdayPieces = stockToPieces(yesterdayEntry.casses, yesterdayEntry.halves, yesterdayEntry.pieces, ppc)
       const receivedPieces = stockToPieces(
         parseInt(row.supplier_casses) + parseInt(row.return_casses),
-        parseInt(row.return_halves),
-        parseInt(row.return_pieces),
-        ppc
+        parseInt(row.return_halves), parseInt(row.return_pieces), ppc
       )
       const todayPieces = stockToPieces(
-        parseInt(row.casses) || 0,
-        parseInt(row.halves) || 0,
-        parseInt(row.pieces) || 0,
-        ppc
+        parseInt(row.casses) || 0, parseInt(row.halves) || 0, parseInt(row.pieces) || 0, ppc
       )
-
       const maxAllowed = yesterdayPieces + receivedPieces
 
       if (todayPieces > maxAllowed) {
-        return {
-          productName: row.product.name,
-          todayPieces,
-          maxAllowedPieces: maxAllowed,
-          yesterdayPieces,
-          receivedPieces,
-          piecesPerCasse: ppc,
-        }
+        return { productName: row.product.name, todayPieces, maxAllowedPieces: maxAllowed, yesterdayPieces, receivedPieces, piecesPerCasse: ppc }
       }
     }
     return null
@@ -210,10 +198,7 @@ export default function DailyEntry() {
     if (locked) return
 
     const warning = validateStock()
-    if (warning) {
-      setOverstockWarning(warning)
-      return
-    }
+    if (warning) { setOverstockWarning(warning); return }
 
     setSaving(true)
     try {
@@ -237,7 +222,7 @@ export default function DailyEntry() {
         stockAPI.bulkSaveReceived(received, entryDate),
       ])
 
-      toast.success('Entry saved successfully!')
+      toast.success(lang === 'rw' ? 'Byabitswe neza!' : 'Entry saved successfully!')
       loadData()
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Something went wrong')
@@ -257,10 +242,10 @@ export default function DailyEntry() {
   if (rows.length === 0) {
     return (
       <div>
-        <h1 className="page-title">Daily Entry</h1>
+        <h1 className="page-title">{t('daily_entry_title', lang)}</h1>
         <div className="card text-center py-8">
-          <p className="text-gray-500">No active products found.</p>
-          <p className="text-gray-400 text-sm mt-1">Add products first before entering stock.</p>
+          <p className="text-gray-500">{t('no_products', lang)}</p>
+          <p className="text-gray-400 text-sm mt-1">{t('no_products_sub', lang)}</p>
         </div>
       </div>
     )
@@ -283,73 +268,66 @@ export default function DailyEntry() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-gray-900">Stock too high!</h2>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {lang === 'rw' ? 'Stock ni nyinshi cyane!' : 'Stock too high!'}
+              </h2>
             </div>
 
             <p className="text-gray-700 font-medium mb-2">{overstockWarning.productName}</p>
 
             <div className="bg-orange-50 rounded-lg p-3 mb-4 space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Yesterday's closing</span>
+                <span className="text-gray-500">{lang === 'rw' ? 'Stock ya ejo' : "Yesterday's closing"}</span>
                 <span className="font-medium">{formatStock(
-                  Math.floor(overstockWarning.yesterdayPieces / overstockWarning.piecesPerCasse),
-                  0,
+                  Math.floor(overstockWarning.yesterdayPieces / overstockWarning.piecesPerCasse), 0,
                   overstockWarning.yesterdayPieces % overstockWarning.piecesPerCasse
                 )}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Received today</span>
+                <span className="text-gray-500">{lang === 'rw' ? 'Wakiriye uyu munsi' : 'Received today'}</span>
                 <span className="font-medium text-blue-600">{formatStock(
-                  Math.floor(overstockWarning.receivedPieces / overstockWarning.piecesPerCasse),
-                  0,
+                  Math.floor(overstockWarning.receivedPieces / overstockWarning.piecesPerCasse), 0,
                   overstockWarning.receivedPieces % overstockWarning.piecesPerCasse
                 )}</span>
               </div>
               <div className="flex justify-between border-t border-orange-200 pt-1">
-                <span className="text-gray-500">Max allowed today</span>
+                <span className="text-gray-500">{lang === 'rw' ? 'Ntarengwa' : 'Max allowed today'}</span>
                 <span className="font-semibold text-gray-900">{formatStock(
-                  Math.floor(overstockWarning.maxAllowedPieces / overstockWarning.piecesPerCasse),
-                  0,
+                  Math.floor(overstockWarning.maxAllowedPieces / overstockWarning.piecesPerCasse), 0,
                   overstockWarning.maxAllowedPieces % overstockWarning.piecesPerCasse
                 )}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">You entered</span>
+                <span className="text-gray-500">{lang === 'rw' ? 'Winjije' : 'You entered'}</span>
                 <span className="font-semibold text-red-600">{formatStock(
-                  Math.floor(overstockWarning.todayPieces / overstockWarning.piecesPerCasse),
-                  0,
+                  Math.floor(overstockWarning.todayPieces / overstockWarning.piecesPerCasse), 0,
                   overstockWarning.todayPieces % overstockWarning.piecesPerCasse
                 )}</span>
               </div>
             </div>
 
             <p className="text-sm text-gray-500 mb-5">
-              Today's stock cannot be higher than yesterday's closing stock plus what you received today. If you received new stock, please tap the <span className="font-bold text-blue-600">+</span> button next to the product first.
+              {lang === 'rw'
+                ? "Stock y'uyu munsi ntirashobora kurenza iya ejo hashize hamwe n'ibyakiriye. Niba wakiriye stock nshya, kanda buto + mbere."
+                : "Today's stock cannot be higher than yesterday's closing stock plus what you received today. If you received new stock, please tap the + button next to the product first."}
             </p>
 
             <button onClick={() => setOverstockWarning(null)} className="btn-primary w-full">
-              Go back and fix it
+              {lang === 'rw' ? 'Subira uhindure' : 'Go back and fix it'}
             </button>
           </div>
         </div>
       )}
 
+      {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <h1 className="page-title mb-0">Daily Entry</h1>
+        <h1 className="page-title mb-0">{t('daily_entry_title', lang)}</h1>
         <div className="flex items-center gap-2">
-          <input
-            type="date"
-            className="input w-auto text-base"
-            value={entryDate}
-            onChange={e => setEntryDate(e.target.value)}
-            max={today()}
-          />
-          <button
-            onClick={saveEntry}
-            disabled={saving || locked}
-            className={`btn-primary ${locked ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {locked ? '🔒 Locked' : saving ? 'Saving...' : 'Save'}
+          <input type="date" className="input w-auto text-base" value={entryDate}
+            onChange={e => setEntryDate(e.target.value)} max={today()} />
+          <button onClick={saveEntry} disabled={saving || locked}
+            className={`btn-primary ${locked ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            {locked ? t('locked', lang) : saving ? t('saving', lang) : t('save', lang)}
           </button>
         </div>
       </div>
@@ -357,17 +335,17 @@ export default function DailyEntry() {
       {/* Status banners */}
       {locked ? (
         <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-800 flex items-center gap-2">
-          🔒 <span>This entry is <strong>locked</strong>. Entries cannot be edited after 24 hours.</span>
+          🔒 <span>{t('locked_entry', lang)}</span>
         </div>
       ) : existingEntries.length > 0 ? (
         <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4 text-sm text-green-800">
-          ✅ Entry already saved for {entryDate}. You can update it below.
+          ✅ {t('already_saved', lang)} {entryDate}. {t('update_below', lang)}
         </div>
       ) : null}
 
       {yesterdayEntries.length === 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 text-sm text-yellow-800">
-          ⚠️ No entry for yesterday. Stock validation will not be available.
+          ⚠️ {t('no_yesterday', lang)}
         </div>
       )}
 
@@ -375,21 +353,21 @@ export default function DailyEntry() {
       {receivedPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-5 w-full max-w-sm shadow-xl">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Stock received</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+              {lang === 'rw' ? 'Stock yakiriye' : 'Stock received'}
+            </h2>
             <p className="text-sm text-blue-600 font-medium mb-4">{receivedPopup.productName}</p>
             <div className="bg-blue-50 rounded-xl p-3 mb-3">
-              <p className="text-xs font-semibold text-blue-700 mb-2">📦 From supplier (full casses only)</p>
-              <input
-                type="number" min="0"
+              <p className="text-xs font-semibold text-blue-700 mb-2">{t('from_supplier', lang)}</p>
+              <input type="number" min="0"
                 className="input text-center text-base py-3 bg-white border-blue-200"
                 placeholder="0"
                 value={receivedPopup.supplier_casses === '0' ? '' : receivedPopup.supplier_casses}
                 onChange={e => setReceivedPopup({ ...receivedPopup, supplier_casses: e.target.value || '0' })}
-                autoFocus
-              />
+                autoFocus />
             </div>
             <div className="bg-orange-50 rounded-xl p-3 mb-4">
-              <p className="text-xs font-semibold text-orange-700 mb-2">↩️ Customer returns</p>
+              <p className="text-xs font-semibold text-orange-700 mb-2">{t('customer_returns', lang)}</p>
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="text-xs text-orange-500 block mb-1">Casses</label>
@@ -415,13 +393,14 @@ export default function DailyEntry() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button onClick={saveReceivedPopup} className="btn-primary flex-1">Confirm</button>
-              <button onClick={() => setReceivedPopup(null)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={saveReceivedPopup} className="btn-primary flex-1">{t('confirm', lang)}</button>
+              <button onClick={() => setReceivedPopup(null)} className="btn-secondary flex-1">{t('cancel', lang)}</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Stock grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {supplierGroups.map(({ supplier, rows: supplierRows }) => (
           <div key={supplier.id} className={`bg-white border rounded-xl shadow-sm p-3 ${locked ? 'border-gray-200 opacity-75' : 'border-gray-200'}`}>
@@ -430,11 +409,11 @@ export default function DailyEntry() {
                 <span className="text-white font-bold text-sm">{supplier.name.charAt(0)}</span>
               </div>
               <h2 className="font-semibold text-gray-800">{supplier.name}</h2>
-              {locked && <span className="ml-auto text-xs text-red-500 font-medium">🔒 Locked</span>}
+              {locked && <span className="ml-auto text-xs text-red-500 font-medium">{t('locked', lang)}</span>}
             </div>
 
             <div className="grid grid-cols-10 gap-1 mb-1 px-1">
-              <div className="col-span-3 text-xs text-gray-400 font-medium">Product</div>
+              <div className="col-span-3 text-xs text-gray-400 font-medium">{t('product', lang)}</div>
               <div className="col-span-2 text-xs text-gray-400 font-medium text-center">Casses</div>
               <div className="col-span-2 text-xs text-gray-400 font-medium text-center">1/2</div>
               <div className="col-span-2 text-xs text-gray-400 font-medium text-center">Pcs</div>
@@ -445,7 +424,6 @@ export default function DailyEntry() {
               {supplierRows.map(row => {
                 const globalIndex = rows.indexOf(row)
                 const hasReceived = hasReceivedStock(row)
-
                 const yesterdayEntry = yesterdayEntries.find(e => e.product_id === row.product.id)
                 const ppc = row.product.pieces_per_casse
                 const yesterdayPieces = yesterdayEntry
@@ -453,15 +431,10 @@ export default function DailyEntry() {
                   : null
                 const receivedPieces = stockToPieces(
                   parseInt(row.supplier_casses) + parseInt(row.return_casses),
-                  parseInt(row.return_halves),
-                  parseInt(row.return_pieces),
-                  ppc
+                  parseInt(row.return_halves), parseInt(row.return_pieces), ppc
                 )
                 const todayPieces = stockToPieces(
-                  parseInt(row.casses) || 0,
-                  parseInt(row.halves) || 0,
-                  parseInt(row.pieces) || 0,
-                  ppc
+                  parseInt(row.casses) || 0, parseInt(row.halves) || 0, parseInt(row.pieces) || 0, ppc
                 )
                 const isOverstock = yesterdayPieces !== null && todayPieces > (yesterdayPieces + receivedPieces)
 
@@ -475,69 +448,45 @@ export default function DailyEntry() {
                         <p className="text-xs text-gray-400 leading-tight">{getYesterdayStock(row.product.id)}</p>
                       </div>
                       <div className="col-span-2">
-                        <input
-                          type="number" min="0"
+                        <input type="number" min="0"
                           className={`input text-center text-sm py-2 px-0.5 ${isOverstock ? 'border-red-400 bg-red-50' : ''} ${locked ? 'bg-gray-50 cursor-not-allowed' : ''}`}
-                          placeholder="0"
-                          value={row.casses}
-                          onChange={e => updateRow(globalIndex, 'casses', e.target.value)}
-                          disabled={locked}
-                        />
+                          placeholder="0" value={row.casses}
+                          onChange={e => updateRow(globalIndex, 'casses', e.target.value)} disabled={locked} />
                       </div>
                       <div className="col-span-2">
                         <select
                           className={`input text-center text-sm py-2 px-0.5 ${isOverstock ? 'border-red-400 bg-red-50' : ''} ${locked ? 'bg-gray-50 cursor-not-allowed' : ''}`}
-                          value={row.halves}
-                          onChange={e => updateRow(globalIndex, 'halves', e.target.value)}
-                          disabled={locked}
-                        >
+                          value={row.halves} onChange={e => updateRow(globalIndex, 'halves', e.target.value)} disabled={locked}>
                           <option value="0">0</option>
                           <option value="1">½</option>
                         </select>
                       </div>
                       <div className="col-span-2">
-                        <input
-                          type="number" min="0"
+                        <input type="number" min="0"
                           className={`input text-center text-sm py-2 px-0.5 ${isOverstock ? 'border-red-400 bg-red-50' : ''} ${locked ? 'bg-gray-50 cursor-not-allowed' : ''}`}
-                          placeholder="0"
-                          value={row.pieces}
-                          onChange={e => updateRow(globalIndex, 'pieces', e.target.value)}
-                          disabled={locked}
-                        />
+                          placeholder="0" value={row.pieces}
+                          onChange={e => updateRow(globalIndex, 'pieces', e.target.value)} disabled={locked} />
                       </div>
                       <div className="col-span-1 flex justify-center">
-                        <button
-                          onClick={() => openReceivedPopup(globalIndex)}
-                          disabled={locked}
+                        <button onClick={() => openReceivedPopup(globalIndex)} disabled={locked}
                           className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors ${
-                            locked
-                              ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
-                              : hasReceived
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-gray-100 text-gray-500 hover:bg-blue-100 hover:text-blue-600'
-                          }`}
-                        >+</button>
+                            locked ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                            : hasReceived ? 'bg-blue-500 text-white'
+                            : 'bg-gray-100 text-gray-500 hover:bg-blue-100 hover:text-blue-600'
+                          }`}>+</button>
                       </div>
                     </div>
                     {isOverstock && !locked && (
                       <div className="px-1 pb-1">
                         <span className="text-xs text-red-500 font-medium">
-                          ⚠️ Too high! Use + to add received stock first
+                          {lang === 'rw' ? '⚠️ Ni nyinshi! Kanda + wongeraho stock yakiriye mbere' : '⚠️ Too high! Use + to add received stock first'}
                         </span>
                       </div>
                     )}
-                    {hasReceived && !isOverstock && !locked && (
+                    {hasReceived && !isOverstock && (
                       <div className="px-1 pb-1">
                         <span className="text-xs text-blue-500 font-medium">
-                          {parseInt(row.supplier_casses) > 0 && `📦 +${row.supplier_casses} from supplier `}
-                          {(parseInt(row.return_casses) > 0 || parseInt(row.return_halves) > 0 || parseInt(row.return_pieces) > 0) && `↩️ return`}
-                        </span>
-                      </div>
-                    )}
-                    {hasReceived && locked && (
-                      <div className="px-1 pb-1">
-                        <span className="text-xs text-blue-500 font-medium">
-                          {parseInt(row.supplier_casses) > 0 && `📦 +${row.supplier_casses} from supplier `}
+                          {parseInt(row.supplier_casses) > 0 && `📦 +${row.supplier_casses} `}
                           {(parseInt(row.return_casses) > 0 || parseInt(row.return_halves) > 0 || parseInt(row.return_pieces) > 0) && `↩️ return`}
                         </span>
                       </div>
@@ -553,12 +502,8 @@ export default function DailyEntry() {
 
       {!locked && (
         <div className="sticky bottom-4 flex justify-end mt-4">
-          <button
-            onClick={saveEntry}
-            disabled={saving}
-            className="btn-primary px-8 shadow-lg"
-          >
-            {saving ? 'Saving...' : '💾 Save entry'}
+          <button onClick={saveEntry} disabled={saving} className="btn-primary px-8 shadow-lg">
+            {saving ? t('saving', lang) : t('save_entry', lang)}
           </button>
         </div>
       )}

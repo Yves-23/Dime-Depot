@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authAPI } from '../lib/api'
+import { t } from '../lib/i18n'
+import type { Language } from '../lib/i18n'
 import toast from 'react-hot-toast'
 
 const COUNTRIES = [
@@ -17,6 +19,12 @@ const COUNTRIES = [
 ]
 
 type Step = 'phone' | 'choose' | 'answer' | 'email' | 'new_pin' | 'done'
+
+function getInitialLang(): Language {
+  const stored = localStorage.getItem('dime-depot-lang')
+  if (stored === 'rw' || stored === 'en') return stored
+  return 'en'
+}
 
 function PinKeypad({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫']
@@ -56,6 +64,7 @@ export default function ResetPin() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('phone')
   const [loading, setLoading] = useState(false)
+  const [lang] = useState<Language>(getInitialLang())
 
   const [phoneCode, setPhoneCode] = useState('+250')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -72,7 +81,7 @@ export default function ResetPin() {
   }
 
   async function handlePhoneSubmit() {
-    if (!phoneNumber.trim()) { toast.error('Please enter your phone number'); return }
+    if (!phoneNumber.trim()) { toast.error(t('phone_number', lang)); return }
     setLoading(true)
     try {
       const data = await authAPI.resetPinQuestion(fullPhone())
@@ -106,8 +115,8 @@ export default function ResetPin() {
   }
 
   async function handleSetPin() {
-    if (!/^\d{4}$/.test(newPin)) { toast.error('Please enter a 4-digit PIN'); return }
-    if (newPin !== confirmPin) { toast.error('PINs do not match'); return }
+    if (!/^\d{4}$/.test(newPin)) { toast.error(lang === 'rw' ? 'Shiramo imibare 4' : 'Please enter a 4-digit PIN'); return }
+    if (newPin !== confirmPin) { toast.error(lang === 'rw' ? "Imibare y'ibanga ntihura" : 'PINs do not match'); return }
     setLoading(true)
     try {
       await authAPI.resetPinSet(resetToken, newPin)
@@ -142,24 +151,22 @@ export default function ResetPin() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
-                Back to login
+                {lang === 'rw' ? 'Subira kwinjira' : 'Back to login'}
               </Link>
             )}
 
             {/* Step: Phone */}
             {step === 'phone' && (
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-1">Forgot your PIN?</h2>
-                <p className="text-gray-400 text-sm mb-6">Enter the phone number linked to your account.</p>
-                <label className="label">Phone number</label>
+                <h2 className="text-2xl font-bold text-gray-900 mb-1">{t('forgot_pin_title', lang)}</h2>
+                <p className="text-gray-400 text-sm mb-6">{t('forgot_pin_sub', lang)}</p>
+                <label className="label">{t('phone_number', lang)}</label>
                 <div className="flex gap-2 mb-6">
                   <div className="relative">
                     <select
                       className="input appearance-none pr-7 pl-3 cursor-pointer font-medium text-gray-800 bg-gray-50"
-                      value={phoneCode}
-                      onChange={e => setPhoneCode(e.target.value)}
-                      style={{ minWidth: '95px' }}
-                    >
+                      value={phoneCode} onChange={e => setPhoneCode(e.target.value)}
+                      style={{ minWidth: '95px' }}>
                       {COUNTRIES.map(c => (
                         <option key={c.name} value={c.code}>{c.flag} {c.code}</option>
                       ))}
@@ -168,17 +175,11 @@ export default function ResetPin() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
-                  <input
-                    type="tel"
-                    className="input flex-1"
-                    placeholder="7XX XXX XXX"
-                    value={phoneNumber}
-                    onChange={e => setPhoneNumber(e.target.value)}
-                    autoFocus
-                  />
+                  <input type="tel" className="input flex-1" placeholder="7XX XXX XXX"
+                    value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} autoFocus />
                 </div>
                 <button onClick={handlePhoneSubmit} disabled={loading} className="btn-primary w-full py-3">
-                  {loading ? 'Looking up...' : 'Continue'}
+                  {loading ? (lang === 'rw' ? 'Birashakwa...' : 'Looking up...') : t('continue_btn', lang)}
                 </button>
               </div>
             )}
@@ -186,8 +187,10 @@ export default function ResetPin() {
             {/* Step: Choose method */}
             {step === 'choose' && (
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-1">How do you want to verify?</h2>
-                <p className="text-gray-400 text-sm mb-6">Choose one of the options below to confirm your identity.</p>
+                <h2 className="text-2xl font-bold text-gray-900 mb-1">{t('how_verify', lang)}</h2>
+                <p className="text-gray-400 text-sm mb-6">
+                  {lang === 'rw' ? 'Hitamo uburyo bwo kugenzura ko ari wowe.' : 'Choose one of the options below to confirm your identity.'}
+                </p>
                 <div className="space-y-3">
                   <button onClick={() => setStep('answer')}
                     className="w-full text-left p-4 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all">
@@ -198,7 +201,7 @@ export default function ResetPin() {
                         </svg>
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900 text-sm">Answer security question</p>
+                        <p className="font-semibold text-gray-900 text-sm">{t('answer_security', lang)}</p>
                         <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[220px]">{securityQuestion}</p>
                       </div>
                     </div>
@@ -213,8 +216,10 @@ export default function ResetPin() {
                           </svg>
                         </div>
                         <div>
-                          <p className="font-semibold text-gray-900 text-sm">Verify with email</p>
-                          <p className="text-xs text-gray-400 mt-0.5">Enter the email linked to your account</p>
+                          <p className="font-semibold text-gray-900 text-sm">{t('verify_email', lang)}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {lang === 'rw' ? 'Andika imeyili yanditswe kuri konti yawe' : 'Enter the email linked to your account'}
+                          </p>
                         </div>
                       </div>
                     </button>
@@ -226,16 +231,19 @@ export default function ResetPin() {
             {/* Step: Security answer */}
             {step === 'answer' && (
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-1">Security question</h2>
-                <p className="text-gray-400 text-sm mb-5">Answer your security question to continue.</p>
+                <h2 className="text-2xl font-bold text-gray-900 mb-1">{t('security_q', lang)}</h2>
+                <p className="text-gray-400 text-sm mb-5">
+                  {lang === 'rw' ? "Subiza ikibazo cy'ibanga gukomeza." : 'Answer your security question to continue.'}
+                </p>
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-5">
                   <p className="text-blue-800 text-sm font-medium">{securityQuestion}</p>
                 </div>
-                <label className="label">Your answer</label>
-                <input type="text" className="input w-full" placeholder="Enter your answer"
+                <label className="label">{t('your_answer', lang)}</label>
+                <input type="text" className="input w-full"
+                  placeholder={lang === 'rw' ? 'Andika igisubizo cyawe' : 'Enter your answer'}
                   value={securityAnswer} onChange={e => setSecurityAnswer(e.target.value)} autoFocus />
                 <button onClick={() => handleVerify('answer')} disabled={loading} className="btn-primary w-full py-3 mt-6">
-                  {loading ? 'Verifying...' : 'Continue'}
+                  {loading ? (lang === 'rw' ? 'Birimo bigenzurwa...' : 'Verifying...') : t('continue_btn', lang)}
                 </button>
               </div>
             )}
@@ -243,13 +251,15 @@ export default function ResetPin() {
             {/* Step: Email verify */}
             {step === 'email' && (
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-1">Verify with email</h2>
-                <p className="text-gray-400 text-sm mb-6">Enter the email address linked to your account.</p>
-                <label className="label">Email address</label>
+                <h2 className="text-2xl font-bold text-gray-900 mb-1">{t('verify_email', lang)}</h2>
+                <p className="text-gray-400 text-sm mb-6">
+                  {lang === 'rw' ? 'Andika imeyili yanditswe kuri konti yawe.' : 'Enter the email address linked to your account.'}
+                </p>
+                <label className="label">{t('email_address', lang)}</label>
                 <input type="email" className="input w-full" placeholder="your@email.com"
                   value={email} onChange={e => setEmail(e.target.value)} autoFocus />
                 <button onClick={() => handleVerify('email')} disabled={loading} className="btn-primary w-full py-3 mt-6">
-                  {loading ? 'Verifying...' : 'Continue'}
+                  {loading ? (lang === 'rw' ? 'Birimo bigenzurwa...' : 'Verifying...') : t('continue_btn', lang)}
                 </button>
               </div>
             )}
@@ -257,33 +267,48 @@ export default function ResetPin() {
             {/* Step: New PIN */}
             {step === 'new_pin' && (
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-1">Set your new PIN</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-1">
+                  {lang === 'rw' ? "Shyiramo umubare w'ibanga mushya" : 'Set your new PIN'}
+                </h2>
                 <p className="text-gray-400 text-sm mb-6">
-                  {newPin.length < 4 ? 'Enter a new 4-digit PIN.' : 'Now confirm your new PIN.'}
+                  {newPin.length < 4
+                    ? (lang === 'rw' ? "Injiza umubare w'ibanga mushya wa imibare 4." : 'Enter a new 4-digit PIN.')
+                    : (lang === 'rw' ? "Emeza umubare w'ibanga mushya." : 'Now confirm your new PIN.')}
                 </p>
                 {newPin.length < 4 ? (
                   <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center mb-4">New PIN</p>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center mb-4">
+                      {lang === 'rw' ? "PIN mushya" : 'New PIN'}
+                    </p>
                     <PinKeypad value={newPin} onChange={setNewPin} />
                   </div>
                 ) : (
                   <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center mb-4">Confirm PIN</p>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-center mb-4">
+                      {lang === 'rw' ? "Emeza PIN" : 'Confirm PIN'}
+                    </p>
                     <PinKeypad value={confirmPin} onChange={setConfirmPin} />
                     {confirmPin.length === 4 && confirmPin !== newPin && (
-                      <p className="text-red-500 text-sm text-center mt-3">PINs do not match</p>
+                      <p className="text-red-500 text-sm text-center mt-3">
+                        {lang === 'rw' ? "Imibare y'ibanga ntihura" : 'PINs do not match'}
+                      </p>
                     )}
                     {confirmPin.length === 4 && confirmPin === newPin && (
-                      <p className="text-green-600 text-sm text-center mt-3">✓ PINs match!</p>
+                      <p className="text-green-600 text-sm text-center mt-3">
+                        {lang === 'rw' ? '✓ Imibare ihura!' : '✓ PINs match!'}
+                      </p>
                     )}
                     {confirmPin.length === 4 && confirmPin === newPin && (
                       <button onClick={handleSetPin} disabled={loading} className="btn-primary w-full py-3 mt-4">
-                        {loading ? 'Saving...' : 'Set new PIN'}
+                        {loading
+                          ? (lang === 'rw' ? 'Birabikwa...' : 'Saving...')
+                          : (lang === 'rw' ? "Bika umubare w'ibanga mushya" : 'Set new PIN')}
                       </button>
                     )}
                     {confirmPin.length > 0 && confirmPin !== newPin.slice(0, confirmPin.length) && (
-                      <button onClick={() => setConfirmPin('')} className="w-full text-center text-gray-400 text-sm mt-3 hover:text-gray-600">
-                        Clear and try again
+                      <button onClick={() => setConfirmPin('')}
+                        className="w-full text-center text-gray-400 text-sm mt-3 hover:text-gray-600">
+                        {lang === 'rw' ? 'Siba ugerageze nanone' : 'Clear and try again'}
                       </button>
                     )}
                   </div>
@@ -299,9 +324,11 @@ export default function ResetPin() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">PIN reset!</h2>
-                <p className="text-gray-400 text-sm mb-8">You can now sign in with your new PIN.</p>
-                <button onClick={() => navigate('/login')} className="btn-primary w-full py-3">Go to sign in</button>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('pin_reset_title', lang)}</h2>
+                <p className="text-gray-400 text-sm mb-8">{t('pin_reset_sub', lang)}</p>
+                <button onClick={() => navigate('/login')} className="btn-primary w-full py-3">
+                  {t('go_sign_in', lang)}
+                </button>
               </div>
             )}
 

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { authAPI, setToken, setBusiness } from '../lib/api'
+import { t } from '../lib/i18n'
+import type { Language } from '../lib/i18n'
 import toast from 'react-hot-toast'
 
 const COUNTRIES = [
@@ -24,9 +26,14 @@ const SECURITY_QUESTIONS = [
   "What is your mother's first name?",
 ]
 
-// Steps: 1=Name+Business, 2=Country, 3=Phone, 4=PIN, 5=ConfirmPIN, 6=SecurityQ, 7=Email, 8=Done
 type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 const TOTAL_STEPS = 7
+
+function getInitialLang(): Language {
+  const stored = localStorage.getItem('dime-depot-lang')
+  if (stored === 'rw' || stored === 'en') return stored
+  return 'en'
+}
 
 function PinKeypad({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫']
@@ -66,6 +73,7 @@ export default function Register() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>(1)
   const [loading, setLoading] = useState(false)
+  const [lang, setLang] = useState<Language>(getInitialLang())
 
   const [ownerName, setOwnerName] = useState('')
   const [businessName, setBusinessName] = useState('')
@@ -78,6 +86,12 @@ export default function Register() {
   const [securityAnswer, setSecurityAnswer] = useState('')
   const [email, setEmail] = useState('')
 
+  function toggleLang() {
+    const newLang = lang === 'en' ? 'rw' : 'en'
+    setLang(newLang)
+    localStorage.setItem('dime-depot-lang', newLang)
+  }
+
   function selectCountry(c: typeof COUNTRIES[0]) {
     setCountry(c)
     setPhoneCode(c.code)
@@ -89,29 +103,31 @@ export default function Register() {
 
   function next() {
     if (step === 1) {
-      if (!ownerName.trim()) { toast.error('Please enter your name'); return }
-      if (!businessName.trim()) { toast.error('Please enter your business name'); return }
+      if (!ownerName.trim()) { toast.error(lang === 'rw' ? 'Andika izina ryawe' : 'Please enter your name'); return }
+      if (!businessName.trim()) { toast.error(lang === 'rw' ? "Andika izina ry'ubucuruzi" : 'Please enter your business name'); return }
     }
     if (step === 2) {
-      if (!country) { toast.error('Please select your country'); return }
+      if (!country) { toast.error(lang === 'rw' ? 'Hitamo igihugu' : 'Please select your country'); return }
     }
     if (step === 3) {
       if (!phoneNumber.replace(/\s/g, '') || phoneNumber.replace(/\s/g, '').length < 7) {
-        toast.error('Please enter a valid phone number'); return
+        toast.error(lang === 'rw' ? 'Andika nomero ya telefone' : 'Please enter a valid phone number'); return
       }
     }
     if (step === 4) {
-      if (!/^\d{4}$/.test(pin)) { toast.error('Please enter a 4-digit PIN'); return }
+      if (!/^\d{4}$/.test(pin)) { toast.error(lang === 'rw' ? 'Shiramo imibare 4' : 'Please enter a 4-digit PIN'); return }
     }
     if (step === 5) {
-      if (pin !== confirmPin) { toast.error('PINs do not match'); return }
+      if (pin !== confirmPin) { toast.error(lang === 'rw' ? "Imibare y'ibanga ntihura" : 'PINs do not match'); return }
     }
     if (step === 6) {
-      if (!securityQuestion) { toast.error('Please select a security question'); return }
-      if (!securityAnswer.trim() || securityAnswer.trim().length < 2) { toast.error('Please enter your answer'); return }
+      if (!securityQuestion) { toast.error(lang === 'rw' ? 'Hitamo ikibazo' : 'Please select a security question'); return }
+      if (!securityAnswer.trim() || securityAnswer.trim().length < 2) {
+        toast.error(lang === 'rw' ? 'Andika igisubizo' : 'Please enter your answer'); return
+      }
     }
     if (step === 7) {
-      if (email && !email.includes('@')) { toast.error('Please enter a valid email'); return }
+      if (email && !email.includes('@')) { toast.error(lang === 'rw' ? 'Andika imeyili yuzuye' : 'Please enter a valid email'); return }
       handleSubmit()
       return
     }
@@ -144,13 +160,13 @@ export default function Register() {
   const progress = ((step - 1) / TOTAL_STEPS) * 100
 
   const stepInfo: Record<number, { title: string; subtitle: string }> = {
-    1: { title: 'Create your account', subtitle: 'Enter your name and your business name to get started.' },
-    2: { title: 'Where are you based?', subtitle: 'Select your country. This sets your currency automatically.' },
-    3: { title: 'Your phone number', subtitle: 'This will be your login identifier. Keep it one you always have access to.' },
-    4: { title: 'Create your PIN', subtitle: 'Choose a 4-digit PIN to secure your account.' },
-    5: { title: 'Confirm your PIN', subtitle: 'Enter your PIN again to make sure it is correct.' },
-    6: { title: 'Security question', subtitle: 'Used to recover your PIN if you ever forget it.' },
-    7: { title: 'Add your email', subtitle: 'Optional — gives you an extra way to recover your PIN.' },
+    1: { title: t('create_account', lang), subtitle: t('create_account_sub', lang) },
+    2: { title: t('where_based', lang), subtitle: t('where_based_sub', lang) },
+    3: { title: t('your_phone', lang), subtitle: t('your_phone_sub', lang) },
+    4: { title: t('create_pin', lang), subtitle: t('create_pin_sub', lang) },
+    5: { title: t('confirm_pin', lang), subtitle: t('confirm_pin_sub', lang) },
+    6: { title: t('security_q', lang), subtitle: t('security_q_sub', lang) },
+    7: { title: t('add_email', lang), subtitle: t('add_email_sub', lang) },
   }
 
   return (
@@ -165,10 +181,14 @@ export default function Register() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">You are all set!</h2>
-            <p className="text-gray-500 mb-1">Welcome to Dime-Depot, <span className="font-semibold text-gray-800">{ownerName}</span>!</p>
-            <p className="text-gray-400 text-sm mb-8">Your account is pending activation. We will notify you once it is approved.</p>
-            <button onClick={() => navigate('/pending')} className="btn-primary w-full py-3">Continue</button>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('all_set', lang)}</h2>
+            <p className="text-gray-500 mb-1">
+              {t('welcome_to', lang)}, <span className="font-semibold text-gray-800">{ownerName}</span>!
+            </p>
+            <p className="text-gray-400 text-sm mb-8">{t('pending_msg', lang)}</p>
+            <button onClick={() => navigate('/pending')} className="btn-primary w-full py-3">
+              {t('continue_btn', lang)}
+            </button>
           </div>
         ) : (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -182,9 +202,15 @@ export default function Register() {
                   </div>
                   <span className="font-bold text-gray-900">Dime-Depot</span>
                 </div>
-                <span className="text-xs font-medium text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
-                  {step} / {TOTAL_STEPS}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button onClick={toggleLang}
+                    className="text-xs font-semibold border border-gray-200 rounded-lg px-2.5 py-1 text-gray-500 hover:bg-gray-50 transition-colors">
+                    {lang === 'en' ? '🇷🇼 RW' : '🇬🇧 EN'}
+                  </button>
+                  <span className="text-xs font-medium text-gray-400 bg-gray-50 px-3 py-1 rounded-full">
+                    {step} / {TOTAL_STEPS}
+                  </span>
+                </div>
               </div>
               <div className="w-full bg-gray-100 rounded-full h-1.5">
                 <div className="bg-blue-600 h-1.5 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
@@ -200,7 +226,7 @@ export default function Register() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
-                  Back
+                  {lang === 'rw' ? 'Subira inyuma' : 'Back'}
                 </button>
               )}
 
@@ -211,13 +237,15 @@ export default function Register() {
               {step === 1 && (
                 <div className="space-y-4">
                   <div>
-                    <label className="label">Name of the owner</label>
-                    <input type="text" className="input w-full" placeholder="Enter your full name"
+                    <label className="label">{t('owner_name', lang)}</label>
+                    <input type="text" className="input w-full"
+                      placeholder={lang === 'rw' ? 'Andika amazina yawe yose' : 'Enter your full name'}
                       value={ownerName} onChange={e => setOwnerName(e.target.value)} autoFocus />
                   </div>
                   <div>
-                    <label className="label">Business/Company name</label>
-                    <input type="text" className="input w-full" placeholder="Enter your business/company name"
+                    <label className="label">{t('business_name', lang)}</label>
+                    <input type="text" className="input w-full"
+                      placeholder={lang === 'rw' ? "Andika izina ry'ubucuruzi" : 'Enter your business/company name'}
                       value={businessName} onChange={e => setBusinessName(e.target.value)} />
                   </div>
                 </div>
@@ -243,15 +271,13 @@ export default function Register() {
               {/* Step 3 — Phone */}
               {step === 3 && (
                 <div>
-                  <label className="label">Phone number</label>
+                  <label className="label">{t('phone_number', lang)}</label>
                   <div className="flex gap-2">
                     <div className="relative">
                       <select
                         className="input appearance-none pr-7 pl-3 cursor-pointer font-medium text-gray-800 bg-gray-50"
-                        value={phoneCode}
-                        onChange={e => setPhoneCode(e.target.value)}
-                        style={{ minWidth: '95px' }}
-                      >
+                        value={phoneCode} onChange={e => setPhoneCode(e.target.value)}
+                        style={{ minWidth: '95px' }}>
                         {COUNTRIES.map(c => (
                           <option key={c.name} value={c.code}>{c.flag} {c.code}</option>
                         ))}
@@ -260,18 +286,12 @@ export default function Register() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
-                    <input
-                      type="tel"
-                      className="input flex-1"
-                      placeholder="7XX XXX XXX"
-                      value={phoneNumber}
-                      onChange={e => setPhoneNumber(e.target.value)}
-                      autoFocus
-                    />
+                    <input type="tel" className="input flex-1" placeholder="7XX XXX XXX"
+                      value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} autoFocus />
                   </div>
                   {phoneNumber && (
                     <p className="text-xs text-gray-400 mt-2">
-                      Full number: <span className="font-medium text-gray-700">{phoneCode}{phoneNumber.replace(/\s/g, '')}</span>
+                      {lang === 'rw' ? 'Nomero yose' : 'Full number'}: <span className="font-medium text-gray-700">{phoneCode}{phoneNumber.replace(/\s/g, '')}</span>
                     </p>
                   )}
                 </div>
@@ -285,10 +305,14 @@ export default function Register() {
                 <div>
                   <PinKeypad value={confirmPin} onChange={setConfirmPin} />
                   {confirmPin.length === 4 && confirmPin !== pin && (
-                    <p className="text-red-500 text-sm text-center mt-3">PINs do not match — try again</p>
+                    <p className="text-red-500 text-sm text-center mt-3">
+                      {lang === 'rw' ? "Imibare y'ibanga ntihura — ongera ugerageze" : 'PINs do not match — try again'}
+                    </p>
                   )}
                   {confirmPin.length === 4 && confirmPin === pin && (
-                    <p className="text-green-600 text-sm text-center mt-3">✓ PINs match!</p>
+                    <p className="text-green-600 text-sm text-center mt-3">
+                      {lang === 'rw' ? '✓ Imibare ihura!' : '✓ PINs match!'}
+                    </p>
                   )}
                 </div>
               )}
@@ -297,9 +321,9 @@ export default function Register() {
               {step === 6 && (
                 <div className="space-y-4">
                   <div>
-                    <label className="label">Choose a question</label>
+                    <label className="label">{lang === 'rw' ? 'Hitamo ikibazo' : 'Choose a question'}</label>
                     <select className="input w-full" value={securityQuestion} onChange={e => setSecurityQuestion(e.target.value)}>
-                      <option value="">Select a question...</option>
+                      <option value="">{lang === 'rw' ? 'Hitamo ikibazo...' : 'Select a question...'}</option>
                       {SECURITY_QUESTIONS.map(q => (
                         <option key={q} value={q}>{q}</option>
                       ))}
@@ -307,10 +331,13 @@ export default function Register() {
                   </div>
                   {securityQuestion && (
                     <div>
-                      <label className="label">Your answer</label>
-                      <input type="text" className="input w-full" placeholder="Enter your answer"
+                      <label className="label">{t('your_answer', lang)}</label>
+                      <input type="text" className="input w-full"
+                        placeholder={lang === 'rw' ? 'Andika igisubizo cyawe' : 'Enter your answer'}
                         value={securityAnswer} onChange={e => setSecurityAnswer(e.target.value)} autoFocus />
-                      <p className="text-xs text-gray-400 mt-1">Remember this answer exactly as you type it.</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {lang === 'rw' ? 'Ibuka igisubizo nkuko ubitsemo.' : 'Remember this answer exactly as you type it.'}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -319,10 +346,12 @@ export default function Register() {
               {/* Step 7 — Email */}
               {step === 7 && (
                 <div>
-                  <label className="label">Email address <span className="text-gray-300 font-normal">(optional)</span></label>
+                  <label className="label">
+                    {t('email_address', lang)} <span className="text-gray-300 font-normal">({lang === 'rw' ? 'Sitegeko' : 'optional'})</span>
+                  </label>
                   <input type="email" className="input w-full" placeholder="e.g. yourname@gmail.com"
                     value={email} onChange={e => setEmail(e.target.value)} autoFocus />
-                  <p className="text-xs text-gray-400 mt-2">You can skip this — it is completely optional.</p>
+                  <p className="text-xs text-gray-400 mt-2">{t('add_email_sub', lang)}</p>
                 </div>
               )}
 
@@ -332,31 +361,33 @@ export default function Register() {
             <div className="px-6 pb-6 space-y-3">
               {step !== 4 && step !== 5 && (
                 <button onClick={next} disabled={loading} className="btn-primary w-full py-3">
-                  {loading ? 'Creating account...' : step === 7 ? 'Finish' : 'Continue'}
+                  {loading
+                    ? (lang === 'rw' ? 'Birimo byandikwa...' : 'Creating account...')
+                    : step === 7 ? t('finish_btn', lang) : t('continue_btn', lang)}
                 </button>
               )}
               {step === 4 && (
                 <button onClick={next} disabled={pin.length !== 4}
                   className={`btn-primary w-full py-3 ${pin.length !== 4 ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                  Continue
+                  {t('continue_btn', lang)}
                 </button>
               )}
               {step === 5 && (
                 <button onClick={next} disabled={confirmPin.length !== 4 || confirmPin !== pin}
                   className={`btn-primary w-full py-3 ${(confirmPin.length !== 4 || confirmPin !== pin) ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                  Continue
+                  {t('continue_btn', lang)}
                 </button>
               )}
               {step === 7 && (
                 <button onClick={() => { setEmail(''); handleSubmit() }}
                   className="w-full text-center text-gray-400 text-sm hover:text-gray-600 transition-colors py-1">
-                  Skip for now
+                  {t('skip_now', lang)}
                 </button>
               )}
               {step === 1 && (
                 <p className="text-center text-gray-400 text-sm">
-                  Already have an account?{' '}
-                  <Link to="/login" className="text-blue-600 font-medium hover:text-blue-700">Sign in</Link>
+                  {t('already_account', lang)}{' '}
+                  <Link to="/login" className="text-blue-600 font-medium hover:text-blue-700">{t('sign_in', lang)}</Link>
                 </p>
               )}
             </div>
