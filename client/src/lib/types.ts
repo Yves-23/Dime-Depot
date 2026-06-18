@@ -7,6 +7,7 @@ export interface Business {
   location: string | null
   country: string | null
   currency: string | null
+  language: string | null
   security_question: string | null
   has_pin: boolean
   has_email: boolean

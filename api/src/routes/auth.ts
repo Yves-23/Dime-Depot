@@ -205,7 +205,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const result = await query(
       `SELECT id, owner_name, business_name, phone, email, location,
-       country, currency, is_active, is_admin, payment_date, created_at,
+       country, currency, language, is_active, is_admin, payment_date, created_at,
        security_question,
        CASE WHEN pin_hash IS NOT NULL THEN true ELSE false END as has_pin,
        CASE WHEN email IS NOT NULL THEN true ELSE false END as has_email
@@ -434,19 +434,6 @@ router.put('/language', authenticate, async (req: AuthRequest, res: Response) =>
     return res.json({ message: 'Language updated successfully', language })
   } catch (error) {
     console.error('Update language error:', error)
-    return res.status(500).json({ error: 'Something went wrong' })
-  }
-})
-
-router.put('/language', authenticate, async (req: AuthRequest, res: Response) => {
-  try {
-    const { language } = req.body
-    if (!['en', 'rw'].includes(language)) {
-      return res.status(400).json({ error: 'Invalid language' })
-    }
-    await query('UPDATE businesses SET language = $1 WHERE id = $2', [language, req.business!.id])
-    return res.json({ message: 'Language updated', language })
-  } catch (error) {
     return res.status(500).json({ error: 'Something went wrong' })
   }
 })
