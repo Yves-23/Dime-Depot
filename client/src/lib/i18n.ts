@@ -285,7 +285,7 @@ const translations = {
 
     // Nav
     daily_entry: 'Injiza',
-    daily_entry_sub: 'Injiza stock',
+    daily_entry_sub: 'Injiza stock uraranye uyu munsi',
     reports: 'Raporo',
     reports_sub: 'Reba ibyo wagurishije, wandike nibyerekeye amafaranga byose',
     profit: 'Inyungu',
