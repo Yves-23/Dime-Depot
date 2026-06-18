@@ -78,7 +78,6 @@ export default function Reports() {
   const isPast = isOlderThan24Hours(reportDate)
   const canEdit = !isPast || editingUnlocked
 
-  useEffect(() => { setEditingUnlocked(false) }, [reportDate])
   useEffect(() => { if (business) loadBaseData() }, [business])
   useEffect(() => { if (business && products.length > 0) loadReport() }, [reportDate, products])
 
@@ -343,7 +342,7 @@ export default function Reports() {
         <div>
           <label className="label text-xs">{t('report_date', lang)}</label>
           <input type="date" className="input w-auto text-base" value={reportDate}
-            onChange={e => { setReportDate(e.target.value); setSaveStatus('idle') }} max={today()} />
+            onChange={e => { setReportDate(e.target.value); setSaveStatus('idle'); setEditingUnlocked(false) }} max={today()} />
         </div>
       </div>
 

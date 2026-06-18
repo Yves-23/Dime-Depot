@@ -100,6 +100,10 @@ export const authAPI = {
 
 // Admin API
 export const adminAPI = {
+  login: (email: string, password: string) =>
+    request('POST', '/api/admin/auth/login', { email, password }, false),
+  verify2FA: (email: string, code: string) =>
+    request('POST', '/api/admin/auth/verify', { email, code }, false),
   getBusinesses: () => request('GET', '/api/admin/businesses'),
   getStats: () => request('GET', '/api/admin/stats'),
   activateBusiness: (id: string, is_active: boolean) =>

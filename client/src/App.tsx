@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import AdminLogin from './pages/admin/AdminLogin'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ResetPin from './pages/ResetPin'
@@ -97,6 +98,7 @@ function AppRoutes() {
       <Route path="/pending" element={<Pending />} />
 
       {/* Admin routes — purple theme */}
+      <Route path="/admin/login" element={<AdminLogin />} />
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
       <Route path="/admin/businesses" element={<AdminRoute><AdminBusinesses /></AdminRoute>} />
       <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
