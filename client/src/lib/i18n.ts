@@ -284,7 +284,7 @@ const translations = {
     collected: 'Amafaranga wakiriye',
 
     // Nav
-    daily_entry: 'Injiza stock buri munsi',
+    daily_entry: 'Injiza',
     daily_entry_sub: 'Injiza stock',
     reports: 'Raporo',
     reports_sub: 'Reba ibyo wagurishije, wandike nibyerekeye amafaranga byose',
