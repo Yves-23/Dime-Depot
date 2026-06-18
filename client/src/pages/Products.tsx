@@ -2,38 +2,35 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { suppliersAPI, productsAPI } from '../lib/api'
 import type { Product, Supplier } from '../lib/types'
+import { t } from '../lib/i18n'
+import type { Language } from '../lib/i18n'
 import toast from 'react-hot-toast'
 
 export default function Products() {
   const { business } = useAuth()
+  const lang: Language = (business as any)?.language || 'en'
+
   const [products, setProducts] = useState<Product[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddProduct, setShowAddProduct] = useState<string | null>(null)
   const [showAddSupplier, setShowAddSupplier] = useState(false)
   const [newSupplierName, setNewSupplierName] = useState('')
-  const [newProduct, setNewProduct] = useState({
-    name: '',
-    supplier_id: '',
-    pieces_per_casse: '',
-  })
+  const [newProduct, setNewProduct] = useState({ name: '', supplier_id: '', pieces_per_casse: '' })
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [confirmToggle, setConfirmToggle] = useState<Product | null>(null)
 
-  useEffect(() => {
-    if (business) loadData()
-  }, [business])
+  useEffect(() => { if (business) loadData() }, [business])
 
   async function loadData() {
     setLoading(true)
     try {
       const [productsData, suppliersData] = await Promise.all([
-        productsAPI.getAll(),
-        suppliersAPI.getAll(),
+        productsAPI.getAll(), suppliersAPI.getAll(),
       ])
       setProducts(productsData.products)
       setSuppliers(suppliersData.suppliers)
-    } catch (error) {
+    } catch {
       toast.error('Failed to load data')
     } finally {
       setLoading(false)
@@ -44,7 +41,7 @@ export default function Products() {
     if (!newSupplierName.trim()) return
     try {
       await suppliersAPI.create(newSupplierName.trim())
-      toast.success('Supplier added!')
+      toast.success(lang === 'rw' ? 'Uruganda rwongewe!' : 'Supplier added!')
       setNewSupplierName('')
       setShowAddSupplier(false)
       loadData()
@@ -55,7 +52,7 @@ export default function Products() {
 
   async function addProduct() {
     if (!newProduct.name.trim() || !newProduct.supplier_id || !newProduct.pieces_per_casse) {
-      toast.error('Please fill in all fields')
+      toast.error(lang === 'rw' ? 'Uzuza ibice byose' : 'Please fill in all fields')
       return
     }
     try {
@@ -64,7 +61,7 @@ export default function Products() {
         name: newProduct.name.trim(),
         pieces_per_casse: parseInt(newProduct.pieces_per_casse),
       })
-      toast.success('Product added!')
+      toast.success(lang === 'rw' ? 'Igicuruzwa cyongewe!' : 'Product added!')
       setNewProduct({ name: '', supplier_id: '', pieces_per_casse: '' })
       setShowAddProduct(null)
       loadData()
@@ -77,7 +74,9 @@ export default function Products() {
     if (!confirmToggle) return
     try {
       await productsAPI.toggle(confirmToggle.id)
-      toast.success(confirmToggle.is_active ? 'Product deactivated' : 'Product activated')
+      toast.success(confirmToggle.is_active
+        ? (lang === 'rw' ? 'Igicuruzwa cyahagaritswe' : 'Product deactivated')
+        : (lang === 'rw' ? 'Igicuruzwa gikora' : 'Product activated'))
       loadData()
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to update product')
@@ -89,7 +88,7 @@ export default function Products() {
     if (!confirmDelete) return
     try {
       await suppliersAPI.delete(confirmDelete)
-      toast.success('Supplier deleted')
+      toast.success(lang === 'rw' ? 'Uruganda rwasibwe' : 'Supplier deleted')
       loadData()
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Failed to delete supplier')
@@ -100,7 +99,7 @@ export default function Products() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading products...</div>
+        <div className="text-gray-500">Loading...</div>
       </div>
     )
   }
@@ -108,27 +107,22 @@ export default function Products() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="page-title mb-0">Products</h1>
+        <h1 className="page-title mb-0">{t('products_title', lang)}</h1>
       </div>
 
       {/* Add supplier modal */}
       {showAddSupplier && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-lg font-semibold mb-4">Add supplier</h2>
+            <h2 className="text-lg font-semibold mb-4">{t('add_supplier', lang)}</h2>
             <div className="mb-4">
-              <label className="label">Supplier name</label>
-              <input
-                type="text"
-                className="input"
-                placeholder="e.g. Skol, Bralirwa"
-                value={newSupplierName}
-                onChange={e => setNewSupplierName(e.target.value)}
-              />
+              <label className="label">{t('supplier_name', lang)}</label>
+              <input type="text" className="input" placeholder={t('supplier_placeholder', lang)}
+                value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)} autoFocus />
             </div>
             <div className="flex gap-3">
-              <button onClick={addSupplier} className="btn-primary flex-1">Add supplier</button>
-              <button onClick={() => setShowAddSupplier(false)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={addSupplier} className="btn-primary flex-1">{t('add_supplier', lang)}</button>
+              <button onClick={() => setShowAddSupplier(false)} className="btn-secondary flex-1">{t('cancel', lang)}</button>
             </div>
           </div>
         </div>
@@ -138,38 +132,31 @@ export default function Products() {
       {showAddProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-lg font-semibold mb-1">Add product</h2>
+            <h2 className="text-lg font-semibold mb-1">{t('add_product_title', lang)}</h2>
             <p className="text-sm text-gray-500 mb-4">
-              Adding to: <span className="font-medium text-gray-700">{suppliers.find(s => s.id === showAddProduct)?.name}</span>
+              {t('adding_to', lang)} <span className="font-medium text-gray-700">{suppliers.find(s => s.id === showAddProduct)?.name}</span>
             </p>
             <div className="space-y-4">
               <div>
-                <label className="label">Product name</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="e.g. Skol nini"
+                <label className="label">{t('product_name', lang)}</label>
+                <input type="text" className="input" placeholder={t('product_placeholder', lang)}
                   value={newProduct.name}
-                  onChange={e => setNewProduct({ ...newProduct, name: e.target.value, supplier_id: showAddProduct })}
-                />
+                  onChange={e => setNewProduct({ ...newProduct, name: e.target.value, supplier_id: showAddProduct })} autoFocus />
               </div>
               <div>
-                <label className="label">Pieces per full casse</label>
-                <input
-                  type="number"
-                  className="input"
-                  placeholder="e.g. 12, 20, 24"
+                <label className="label">{t('pieces_per_casse', lang)}</label>
+                <input type="number" className="input" placeholder="e.g. 12, 20, 24"
                   value={newProduct.pieces_per_casse}
-                  onChange={e => setNewProduct({ ...newProduct, pieces_per_casse: e.target.value })}
-                />
+                  onChange={e => setNewProduct({ ...newProduct, pieces_per_casse: e.target.value })} />
                 <p className="text-xs text-gray-500 mt-1">
-                  1/2 casse will automatically be {newProduct.pieces_per_casse ? parseInt(newProduct.pieces_per_casse) / 2 : '?'} pieces
+                  {t('half_casse_auto', lang)} {newProduct.pieces_per_casse ? parseInt(newProduct.pieces_per_casse) / 2 : '?'} {t('half_casse_auto2', lang)}
                 </p>
               </div>
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={addProduct} className="btn-primary flex-1">Add product</button>
-              <button onClick={() => { setShowAddProduct(null); setNewProduct({ name: '', supplier_id: '', pieces_per_casse: '' }) }} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={addProduct} className="btn-primary flex-1">{t('add_product', lang)}</button>
+              <button onClick={() => { setShowAddProduct(null); setNewProduct({ name: '', supplier_id: '', pieces_per_casse: '' }) }}
+                className="btn-secondary flex-1">{t('cancel', lang)}</button>
             </div>
           </div>
         </div>
@@ -185,14 +172,12 @@ export default function Products() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-gray-900">Delete supplier?</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('delete_supplier_title', lang)}</h2>
             </div>
-            <p className="text-gray-500 text-sm mb-6">
-              This will permanently delete this supplier. This action cannot be undone.
-            </p>
+            <p className="text-gray-500 text-sm mb-6">{t('delete_supplier_msg', lang)}</p>
             <div className="flex gap-3">
-              <button onClick={confirmDeleteSupplier} className="btn-danger flex-1">Yes, delete</button>
-              <button onClick={() => setConfirmDelete(null)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={confirmDeleteSupplier} className="btn-danger flex-1">{t('yes_delete', lang)}</button>
+              <button onClick={() => setConfirmDelete(null)} className="btn-secondary flex-1">{t('cancel', lang)}</button>
             </div>
           </div>
         </div>
@@ -209,22 +194,20 @@ export default function Products() {
                 </svg>
               </div>
               <h2 className="text-lg font-semibold text-gray-900">
-                {confirmToggle.is_active ? 'Deactivate' : 'Activate'} {confirmToggle.name}?
+                {confirmToggle.is_active ? t('deactivate', lang) : t('activate', lang)} {confirmToggle.name}?
               </h2>
             </div>
             <p className="text-gray-500 text-sm mb-6">
-              {confirmToggle.is_active
-                ? 'Deactivating this product will hide it from daily entry and reports.'
-                : 'Activating this product will make it visible again in daily entry and reports.'}
+              {confirmToggle.is_active ? t('deactivate_product_msg', lang) : t('activate_product_msg', lang)}
             </p>
             <div className="flex gap-3">
-              <button
-                onClick={confirmToggleProduct}
-                className={confirmToggle.is_active ? 'btn-danger flex-1' : 'btn-primary flex-1'}
-              >
-                Yes, {confirmToggle.is_active ? 'deactivate' : 'activate'}
+              <button onClick={confirmToggleProduct}
+                className={confirmToggle.is_active ? 'btn-danger flex-1' : 'btn-primary flex-1'}>
+                {lang === 'rw'
+                  ? (confirmToggle.is_active ? 'Yego, hagarika' : 'Yego, irakora')
+                  : (confirmToggle.is_active ? 'Yes, deactivate' : 'Yes, activate')}
               </button>
-              <button onClick={() => setConfirmToggle(null)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={() => setConfirmToggle(null)} className="btn-secondary flex-1">{t('cancel', lang)}</button>
             </div>
           </div>
         </div>
@@ -233,19 +216,18 @@ export default function Products() {
       {/* Suppliers section */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-800">Suppliers ({suppliers.length})</h3>
-          <button
-            onClick={() => setShowAddSupplier(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors text-sm"
-          >
-            + Add supplier
+          <h3 className="text-lg font-semibold text-gray-800">{t('suppliers_label', lang)} ({suppliers.length})</h3>
+          <button onClick={() => setShowAddSupplier(true)}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors text-sm">
+            + {t('add_supplier', lang)}
           </button>
         </div>
         {suppliers.length === 0 ? (
           <div className="card text-center py-6">
-            <p className="text-gray-500 text-sm">No suppliers yet.</p>
-            <button onClick={() => setShowAddSupplier(true)} className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors text-sm mt-3">
-              Add your first supplier
+            <p className="text-gray-500 text-sm">{t('no_suppliers', lang)}</p>
+            <button onClick={() => setShowAddSupplier(true)}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700 transition-colors text-sm mt-3">
+              {t('add_first_supplier', lang)}
             </button>
           </div>
         ) : (
@@ -260,11 +242,14 @@ export default function Products() {
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900">{supplier.name}</p>
-                    <p className="text-xs text-gray-500">{products.filter(p => p.supplier_id === supplier.id).length} products</p>
+                    <p className="text-xs text-gray-500">
+                      {products.filter(p => p.supplier_id === supplier.id).length} {t('products_count', lang)}
+                    </p>
                   </div>
                 </div>
-                <button onClick={() => setConfirmDelete(supplier.id)} className="text-red-400 hover:text-red-600 text-sm font-medium transition-colors">
-                  Delete
+                <button onClick={() => setConfirmDelete(supplier.id)}
+                  className="text-red-400 hover:text-red-600 text-sm font-medium transition-colors">
+                  {t('delete', lang)}
                 </button>
               </div>
             ))}
@@ -282,32 +267,31 @@ export default function Products() {
                 <h3 className="text-lg font-semibold text-gray-800">{supplier.name}</h3>
                 <button
                   onClick={() => { setShowAddProduct(supplier.id); setNewProduct({ name: '', supplier_id: supplier.id, pieces_per_casse: '' }) }}
-                  className="btn-primary text-sm"
-                >
-                  + Add product
+                  className="btn-primary text-sm">
+                  + {t('add_product', lang)}
                 </button>
               </div>
               {supplierProducts.length === 0 ? (
-                <p className="text-gray-400 text-sm text-center py-4">No products yet for this supplier.</p>
+                <p className="text-gray-400 text-sm text-center py-4">{t('no_products_supplier', lang)}</p>
               ) : (
                 <div className="space-y-2">
                   {supplierProducts.map(product => (
                     <div key={product.id} className="flex items-center justify-between py-3 px-3 bg-gray-50 rounded-lg">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 truncate">{product.name}</p>
-                        <p className="text-xs text-gray-500">{product.pieces_per_casse} pcs/casse · 1/2 = {product.pieces_per_casse / 2} pcs</p>
+                        <p className="text-xs text-gray-500">
+                          {product.pieces_per_casse} {t('pcs_casse', lang)} · 1/2 = {product.pieces_per_casse / 2}
+                        </p>
                       </div>
                       <div className="flex items-center gap-3 ml-3 shrink-0">
                         {product.is_active ? (
-                          <span className="badge-active">Active</span>
+                          <span className="badge-active">{t('active', lang)}</span>
                         ) : (
-                          <span className="badge-inactive">Inactive</span>
+                          <span className="badge-inactive">{t('inactive', lang)}</span>
                         )}
-                        <button
-                          onClick={() => setConfirmToggle(product)}
-                          className={`text-sm font-medium ${product.is_active ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'}`}
-                        >
-                          {product.is_active ? 'Deactivate' : 'Activate'}
+                        <button onClick={() => setConfirmToggle(product)}
+                          className={`text-sm font-medium ${product.is_active ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'}`}>
+                          {product.is_active ? t('deactivate', lang) : t('activate', lang)}
                         </button>
                       </div>
                     </div>
@@ -321,10 +305,9 @@ export default function Products() {
 
       {suppliers.length === 0 && (
         <div className="card text-center py-8">
-          <p className="text-gray-500">No suppliers yet.</p>
-          <p className="text-gray-400 text-sm mt-1">Add a supplier first, then add products under it.</p>
+          <p className="text-gray-500">{t('no_suppliers_msg', lang)}</p>
           <button onClick={() => setShowAddSupplier(true)} className="btn-primary mt-3 text-sm">
-            Add your first supplier
+            {t('add_first_supplier', lang)}
           </button>
         </div>
       )}

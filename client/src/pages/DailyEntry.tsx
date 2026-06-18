@@ -45,6 +45,12 @@ function isLocked(dateStr: string): boolean {
   return diffHours > 24
 }
 
+// Max pieces = half a casse minus 1
+// e.g. 24 pieces/casse → max pieces = 11
+function maxPieces(piecesPerCasse: number): number {
+  return Math.floor(piecesPerCasse / 2) - 1
+}
+
 export default function DailyEntry() {
   const { business } = useAuth()
   const lang: Language = (business as any)?.language || 'en'
@@ -111,7 +117,7 @@ export default function DailyEntry() {
       })
 
       setRows(newRows)
-    } catch (error) {
+    } catch {
       toast.error('Failed to load data')
     } finally {
       setLoading(false)
@@ -121,6 +127,24 @@ export default function DailyEntry() {
   function updateRow(index: number, field: keyof StockInputRow, value: string) {
     if (locked) return
     const updated = [...rows]
+
+    // Validate pieces — cannot reach half a casse
+    if (field === 'pieces') {
+      const ppc = updated[index].product.pieces_per_casse
+      const max = maxPieces(ppc)
+      const num = parseInt(value) || 0
+      if (num > max) {
+        toast.error(
+          lang === 'rw'
+            ? `Umubare wa pcs ntushobora kurenza ${max} (igice cy'icasse = ${ppc / 2} pcs)`
+            : `Pieces cannot exceed ${max} (half a casse = ${ppc / 2} pcs)`
+        )
+        updated[index] = { ...updated[index], [field]: String(max) }
+        setRows(updated)
+        return
+      }
+    }
+
     updated[index] = { ...updated[index], [field]: value }
     setRows(updated)
   }
@@ -309,7 +333,7 @@ export default function DailyEntry() {
             <p className="text-sm text-gray-500 mb-5">
               {lang === 'rw'
                 ? "Stock y'uyu munsi ntirashobora kurenza iya ejo hashize hamwe n'ibyakiriye. Niba wakiriye stock nshya, kanda buto + mbere."
-                : "Today's stock cannot be higher than yesterday's closing stock plus what you received today. If you received new stock, please tap the + button next to the product first."}
+                : "Today's stock cannot be higher than yesterday's closing stock plus what you received today. If you received new stock, please tap the + button first."}
             </p>
 
             <button onClick={() => setOverstockWarning(null)} className="btn-primary w-full">
@@ -426,6 +450,7 @@ export default function DailyEntry() {
                 const hasReceived = hasReceivedStock(row)
                 const yesterdayEntry = yesterdayEntries.find(e => e.product_id === row.product.id)
                 const ppc = row.product.pieces_per_casse
+                const max = maxPieces(ppc)
                 const yesterdayPieces = yesterdayEntry
                   ? stockToPieces(yesterdayEntry.casses, yesterdayEntry.halves, yesterdayEntry.pieces, ppc)
                   : null
@@ -462,7 +487,7 @@ export default function DailyEntry() {
                         </select>
                       </div>
                       <div className="col-span-2">
-                        <input type="number" min="0"
+                        <input type="number" min="0" max={max}
                           className={`input text-center text-sm py-2 px-0.5 ${isOverstock ? 'border-red-400 bg-red-50' : ''} ${locked ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                           placeholder="0" value={row.pieces}
                           onChange={e => updateRow(globalIndex, 'pieces', e.target.value)} disabled={locked} />
@@ -479,7 +504,7 @@ export default function DailyEntry() {
                     {isOverstock && !locked && (
                       <div className="px-1 pb-1">
                         <span className="text-xs text-red-500 font-medium">
-                          {lang === 'rw' ? '⚠️ Ni nyinshi! Kanda + wongeraho stock yakiriye mbere' : '⚠️ Too high! Use + to add received stock first'}
+                          {lang === 'rw' ? '⚠️ Winjije byinshi kuruta ejo! Kanda + wongere stock wakiriye uyu munsi' : '⚠️ Too high! Use + to add received stock first'}
                         </span>
                       </div>
                     )}
