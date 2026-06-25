@@ -225,7 +225,7 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
         const buyingPrice = getPriceForDate(buyingPrices.rows, todayEntry.product_id, date)
 
         dayRevenue += Math.ceil(((soldPieces / ppc) * sellingPrice) / 100) * 100
-        dayBuyingCost += (soldPieces / ppc) * buyingPrice
+        dayBuyingCost += Math.ceil(((soldPieces / ppc) * buyingPrice) / 50) * 50
       })
 
       // Total collected = MoMo + Cash + Debts + Expenses
