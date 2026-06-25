@@ -136,8 +136,8 @@ export default function DailyEntry() {
       if (num > max) {
         toast.error(
           lang === 'rw'
-            ? `Umubare wa pcs ntushobora kurenza ${max} (igice cy'icasse = ${ppc / 2} pcs)`
-            : `Pieces cannot exceed ${max} (half a casse = ${ppc / 2} pcs)`
+            ? `Umubare w' amacupa ntushobora kurenza ${max} (igice cy'ikaziye = ${ppc / 2} amacupa)`
+            : `Pieces cannot exceed ${max} (half a crate = ${ppc / 2} pcs)`
         )
         updated[index] = { ...updated[index], [field]: String(max) }
         setRows(updated)
@@ -190,7 +190,7 @@ export default function DailyEntry() {
     }
     setRows(updated)
     setReceivedPopup(null)
-    toast.success(lang === 'rw' ? 'Byongewe! Kanda Bika gukomeza.' : 'Received stock added! Click Save to confirm.')
+    toast.success(lang === 'rw' ? 'Byongewe neza! Kanda Bika ubibike.' : 'Received stock added! Click Save to confirm.')
   }
 
   function validateStock(): OverstockWarning | null {
@@ -377,9 +377,7 @@ export default function DailyEntry() {
       {receivedPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-5 w-full max-w-sm shadow-xl">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">
-              {lang === 'rw' ? 'Stock yakiriye' : 'Stock received'}
-            </h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">{t('stock_received', lang)}</h2>
             <p className="text-sm text-blue-600 font-medium mb-4">{receivedPopup.productName}</p>
             <div className="bg-blue-50 rounded-xl p-3 mb-3">
               <p className="text-xs font-semibold text-blue-700 mb-2">{t('from_supplier', lang)}</p>
@@ -394,7 +392,7 @@ export default function DailyEntry() {
               <p className="text-xs font-semibold text-orange-700 mb-2">{t('customer_returns', lang)}</p>
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="text-xs text-orange-500 block mb-1">Casses</label>
+                  <label className="text-xs text-orange-500 block mb-1">{t('crates', lang)}</label>
                   <input type="number" min="0" className="input text-center py-3 bg-white border-orange-200" placeholder="0"
                     value={receivedPopup.return_casses === '0' ? '' : receivedPopup.return_casses}
                     onChange={e => setReceivedPopup({ ...receivedPopup, return_casses: e.target.value || '0' })} />
@@ -409,7 +407,7 @@ export default function DailyEntry() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-orange-500 block mb-1">Pieces</label>
+                  <label className="text-xs text-orange-500 block mb-1">{t('pieces', lang)}</label>
                   <input type="number" min="0" className="input text-center py-3 bg-white border-orange-200" placeholder="0"
                     value={receivedPopup.return_pieces === '0' ? '' : receivedPopup.return_pieces}
                     onChange={e => setReceivedPopup({ ...receivedPopup, return_pieces: e.target.value || '0' })} />
@@ -438,7 +436,7 @@ export default function DailyEntry() {
 
             <div className="grid grid-cols-10 gap-1 mb-1 px-1">
               <div className="col-span-3 text-xs text-gray-400 font-medium">{t('product', lang)}</div>
-              <div className="col-span-2 text-xs text-gray-400 font-medium text-center">Casses</div>
+              <div className="col-span-2 text-xs text-gray-400 font-medium text-center">{t('crates', lang)}</div>
               <div className="col-span-2 text-xs text-gray-400 font-medium text-center">1/2</div>
               <div className="col-span-2 text-xs text-gray-400 font-medium text-center">Pcs</div>
               <div className="col-span-1 text-xs text-gray-400 font-medium text-center">+</div>
@@ -504,7 +502,7 @@ export default function DailyEntry() {
                     {isOverstock && !locked && (
                       <div className="px-1 pb-1">
                         <span className="text-xs text-red-500 font-medium">
-                          {lang === 'rw' ? '⚠️ Winjije byinshi kuruta ejo! Kanda + wongere stock wakiriye uyu munsi' : '⚠️ Too high! Use + to add received stock first'}
+                          {lang === 'rw' ? '⚠️ Winjije byinshi kuruta iby\'s ejo!' : '⚠️ Too high from yesterday\'s entry!'}
                         </span>
                       </div>
                     )}

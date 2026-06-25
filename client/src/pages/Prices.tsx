@@ -146,7 +146,7 @@ export default function Prices() {
                 </div>
                 <div className="bg-gray-50 rounded-lg p-2 text-center">
                   <p className="text-xs text-gray-400">{t('per_piece', lang)}</p>
-                  <p className="text-sm font-semibold text-gray-700">{formatRWF(parseFloat(editingValue) / editing.product.pieces_per_casse)}</p>
+                  <p className="text-sm font-semibold text-gray-700">{formatRWF(Math.ceil(parseFloat(editingValue) / editing.product.pieces_per_casse / 100) * 100)}</p>
                 </div>
               </div>
             )}

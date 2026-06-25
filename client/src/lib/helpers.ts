@@ -30,7 +30,7 @@ export function formatStock(
   pieces: number
 ): string {
   const parts: string[] = []
-  if (casses > 0) parts.push(`${casses} ${casses === 1 ? 'casse' : 'casses'}`)
+  if (casses > 0) parts.push(`${casses} ${casses === 1 ? 'crate' : 'crates'}`)
   if (halves > 0) parts.push('1/2')
   if (pieces > 0) parts.push(`${pieces} ${pieces === 1 ? 'pc' : 'pcs'}`)
   return parts.length ? parts.join(' + ') : '0'
