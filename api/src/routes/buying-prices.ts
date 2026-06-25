@@ -224,7 +224,7 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
         const sellingPrice = getPriceForDate(sellingPrices.rows, todayEntry.product_id, date)
         const buyingPrice = getPriceForDate(buyingPrices.rows, todayEntry.product_id, date)
 
-        dayRevenue += (soldPieces / ppc) * sellingPrice
+        dayRevenue += Math.ceil(((soldPieces / ppc) * sellingPrice) / 100) * 100
         dayBuyingCost += (soldPieces / ppc) * buyingPrice
       })
 
