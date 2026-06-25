@@ -4,7 +4,7 @@ import { stockAPI, suppliersAPI, productsAPI, pricesAPI, financesAPI } from '../
 import type { Product, Supplier, Price } from '../lib/types'
 import {
   stockToPieces, piecesToStock, formatStock, formatRWF,
-  getPriceForDate, today, yesterday, formatDate,
+  getPriceForDate, today, formatDate,
 } from '../lib/helpers'
 import { t } from '../lib/i18n'
 import type { Language } from '../lib/i18n'
@@ -62,6 +62,7 @@ export default function Reports() {
   const [reportDate, setReportDate] = useState(today())
   const [hasData, setHasData] = useState(false)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
+  const [lastEntryDate, setLastEntryDate] = useState<string | null>(null)
 
   const [editingUnlocked, setEditingUnlocked] = useState(false)
   const [showUnlockWarning, setShowUnlockWarning] = useState(false)
@@ -99,9 +100,10 @@ export default function Reports() {
     if (!business) return
     setLoading(true)
     try {
-      const [todayEntries, yesterdayEntries, receivedToday, financesData] = await Promise.all([
+      // Use getLastEntries instead of yesterday — handles skipped days
+      const [todayEntries, lastEntriesData, receivedToday, financesData] = await Promise.all([
         stockAPI.getEntries(reportDate),
-        stockAPI.getEntries(yesterday(reportDate)),
+        stockAPI.getLastEntries(reportDate),
         stockAPI.getReceived(reportDate),
         financesAPI.get(reportDate),
       ])
@@ -120,7 +122,9 @@ export default function Reports() {
       setSaveStatus('saved')
 
       const todayEntriesList = todayEntries.entries
-      const yesterdayEntriesList = yesterdayEntries.entries
+      const lastEntriesList = lastEntriesData.entries  // most recent before reportDate
+      const lastDate = lastEntriesData.last_date
+      setLastEntryDate(lastDate)
       const receivedList = receivedToday.received
 
       if (!todayEntriesList?.length) { setSaleRows([]); setHasData(false); setLoading(false); return }
@@ -132,15 +136,15 @@ export default function Reports() {
         const supplier = suppliers.find(s => s.id === product.supplier_id)
         if (!supplier) return
         const todayEntry = todayEntriesList.find((e: any) => e.product_id === product.id)
-        const yesterdayEntry = yesterdayEntriesList?.find((e: any) => e.product_id === product.id)
+        const lastEntry = lastEntriesList?.find((e: any) => e.product_id === product.id)
         const received = receivedList?.find((r: any) => r.product_id === product.id)
         if (!todayEntry) return
 
         const todayPieces = stockToPieces(todayEntry.casses, todayEntry.halves, todayEntry.pieces, product.pieces_per_casse)
-        const yesterdayPieces = yesterdayEntry ? stockToPieces(yesterdayEntry.casses, yesterdayEntry.halves, yesterdayEntry.pieces, product.pieces_per_casse) : 0
+        const lastPieces = lastEntry ? stockToPieces(lastEntry.casses, lastEntry.halves, lastEntry.pieces, product.pieces_per_casse) : 0
         const receivedPieces = received ? stockToPieces(received.supplier_casses + received.return_casses, received.return_halves, received.return_pieces, product.pieces_per_casse) : 0
 
-        const soldPieces = yesterdayPieces + receivedPieces - todayPieces
+        const soldPieces = lastPieces + receivedPieces - todayPieces
         if (soldPieces <= 0) return
 
         const sold = piecesToStock(soldPieces, product.pieces_per_casse)
@@ -206,9 +210,7 @@ export default function Reports() {
     if (!confirmAction) return
 
     if (confirmAction.type === 'save_past') { setConfirmAction(null); await doSaveFinances(); return }
-
     if (confirmAction.type === 'delete_debt') { setDebts(debts.filter((_, idx) => idx !== confirmAction.index)); setSaveStatus('idle') }
-
     if (confirmAction.type === 'delete_expense') { setExpenses(expenses.filter((_, idx) => idx !== confirmAction.index)); setSaveStatus('idle') }
 
     if (confirmAction.type === 'toggle_debt') {
@@ -285,6 +287,14 @@ export default function Reports() {
 
   const confirmMsg = getConfirmMessage()
 
+  // Check if last entry was not the day before reportDate
+  const prevDay = (() => {
+    const d = new Date(reportDate)
+    d.setDate(d.getDate() - 1)
+    return d.toISOString().split('T')[0]
+  })()
+  const usedSkippedDays = lastEntryDate && lastEntryDate !== prevDay
+
   return (
     <div>
 
@@ -345,6 +355,15 @@ export default function Reports() {
             onChange={e => { setReportDate(e.target.value); setSaveStatus('idle'); setEditingUnlocked(false) }} max={today()} />
         </div>
       </div>
+
+      {/* Info banner when skipped days detected */}
+      {usedSkippedDays && hasData && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-sm text-blue-800">
+          ℹ️ {lang === 'rw'
+            ? `Nta stock yabonywe kuwa ${prevDay}. Barura rya nyuma ryakoreshejwe (${lastEntryDate}) ngo ribarure ibyo wagurishije.`
+            : `No entry found for ${prevDay}. Revenue calculated using last available entry from ${lastEntryDate}.`}
+        </div>
+      )}
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -542,7 +561,7 @@ export default function Reports() {
                           <div className="min-w-0">
                             <p className="font-medium text-gray-900 text-sm truncate">{row.product.name}</p>
                             <p className="text-xs text-gray-400">
-                              {row.pricePerCasse ? `${formatAmount(row.pricePerCasse)}/cs` : <span className="text-red-500">{t('no_price', lang)}</span>}
+                              {row.pricePerCasse ? `${formatAmount(row.pricePerCasse)}/cr` : <span className="text-red-500">{t('no_price', lang)}</span>}
                             </p>
                           </div>
                           <div className="flex justify-center">

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { stockAPI, suppliersAPI, productsAPI, pricesAPI, financesAPI } from '../lib/api'
 import type { Product, Supplier, Price } from '../lib/types'
-import { stockToPieces, formatRWF, getPriceForDate, today, yesterday } from '../lib/helpers'
+import { stockToPieces, formatRWF, getPriceForDate, today } from '../lib/helpers'
 import { Link } from 'react-router-dom'
 import { t } from '../lib/i18n'
 import type { Language } from '../lib/i18n'
@@ -42,7 +42,7 @@ export default function Dashboard() {
         suppliersData,
         pricesData,
         todayEntries,
-        yesterdayEntries,
+        lastEntriesData,  // ← use getLastEntries instead of yesterday
         receivedToday,
         financesData,
       ] = await Promise.all([
@@ -50,7 +50,7 @@ export default function Dashboard() {
         suppliersAPI.getAll(),
         pricesAPI.getAll(),
         stockAPI.getEntries(todayDate),
-        stockAPI.getEntries(yesterday(todayDate)),
+        stockAPI.getLastEntries(todayDate),  // ← finds most recent before today
         stockAPI.getReceived(todayDate),
         financesAPI.get(todayDate),
       ])
@@ -59,12 +59,12 @@ export default function Dashboard() {
       const suppliers: Supplier[] = suppliersData.suppliers
       const prices: Price[] = pricesData.prices
       const todayEntriesList = todayEntries.entries
-      const yesterdayEntriesList = yesterdayEntries.entries
+      const lastEntriesList = lastEntriesData.entries
       const receivedList = receivedToday.received
 
       setHasEntryToday(todayEntriesList.length > 0)
 
-      if (!todayEntriesList.length || !yesterdayEntriesList.length) {
+      if (!todayEntriesList.length || !lastEntriesList.length) {
         setSummary(null)
         setBalance(null)
         setLoading(false)
@@ -78,18 +78,18 @@ export default function Dashboard() {
       products.forEach(product => {
         const supplier = suppliers.find(s => s.id === product.supplier_id)
         const todayEntry = todayEntriesList.find((e: any) => e.product_id === product.id)
-        const yesterdayEntry = yesterdayEntriesList.find((e: any) => e.product_id === product.id)
+        const lastEntry = lastEntriesList.find((e: any) => e.product_id === product.id)
         const received = receivedList.find((r: any) => r.product_id === product.id)
 
-        if (!todayEntry || !yesterdayEntry) return
+        if (!todayEntry || !lastEntry) return
 
-        const yesterdayPieces = stockToPieces(yesterdayEntry.casses, yesterdayEntry.halves, yesterdayEntry.pieces, product.pieces_per_casse)
+        const lastPieces = stockToPieces(lastEntry.casses, lastEntry.halves, lastEntry.pieces, product.pieces_per_casse)
         const todayPieces = stockToPieces(todayEntry.casses, todayEntry.halves, todayEntry.pieces, product.pieces_per_casse)
         const receivedPieces = received
           ? stockToPieces(received.supplier_casses + received.return_casses, received.return_halves, received.return_pieces, product.pieces_per_casse)
           : 0
 
-        const soldPieces = yesterdayPieces + receivedPieces - todayPieces
+        const soldPieces = lastPieces + receivedPieces - todayPieces
         if (soldPieces <= 0) return
 
         const price = getPriceForDate(prices, product.id, todayDate)

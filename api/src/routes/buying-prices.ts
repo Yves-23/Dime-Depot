@@ -65,15 +65,15 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
       return res.status(400).json({ error: 'Start date and end date are required' })
     }
 
-    // Fetch one day before start_date so first day has a "yesterday"
+    // Go back 30 days before start_date to handle skipped days
     const startDateObj = new Date(start_date as string)
-    startDateObj.setDate(startDateObj.getDate() - 1)
+    startDateObj.setDate(startDateObj.getDate() - 30)
     const year = startDateObj.getFullYear()
     const month = String(startDateObj.getMonth() + 1).padStart(2, '0')
     const day = String(startDateObj.getDate()).padStart(2, '0')
     const dayBeforeStart = `${year}-${month}-${day}`
 
-    // Get stock entries from day before start to end
+    // Get stock entries from 30 days before start to end
     const entries = await query(
       `SELECT se.*, p.pieces_per_casse, p.id as prod_id
        FROM stock_entries se
@@ -104,7 +104,7 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
       [req.business!.id, start_date, end_date]
     )
 
-    // Get daily finances (momo + cash) in range
+    // Get daily finances in range
     const finances = await query(
       `SELECT * FROM daily_finances 
        WHERE business_id = $1 
@@ -167,12 +167,27 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
     for (let i = 0; i < allDates.length; i++) {
       const date = allDates[i]
 
-      // Skip dates outside requested range (day before is just for reference)
+      // Skip dates outside the requested range
       if (date < (start_date as string) || date > (end_date as string)) continue
 
-      const prevDate = allDates[i - 1]
       const todayEntries = entriesByDate[date]
-      const yesterdayEntries = prevDate ? (entriesByDate[prevDate] || []) : []
+
+      // For each product today, find the most recent previous entry
+      // This handles skipped days correctly
+      const yesterdayEntries: any[] = []
+      todayEntries.forEach((todayEntry: any) => {
+        for (let j = i - 1; j >= 0; j--) {
+          const prevDate = allDates[j]
+          const prevEntries = entriesByDate[prevDate] || []
+          const prevEntry = prevEntries.find(
+            (e: any) => e.product_id === todayEntry.product_id
+          )
+          if (prevEntry) {
+            yesterdayEntries.push(prevEntry)
+            break
+          }
+        }
+      })
 
       let dayRevenue = 0
       let dayBuyingCost = 0
@@ -226,13 +241,10 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
 
       const dayCollected = dayMomo + dayCash + dayDebts + dayExpensesTotal
 
-      // Surplus = collected > revenue (extra money)
-      // Deficit = collected < revenue (missing money)
       const dayDifference = dayCollected - dayRevenue
       const daySurplus = dayDifference > 0 ? dayDifference : 0
       const dayDeficit = dayDifference < 0 ? Math.abs(dayDifference) : 0
 
-      // Real Profit = (Revenue - Buying Cost) + Surplus - Deficit
       const dayGrossProfit = dayRevenue - dayBuyingCost
       const dayRealProfit = dayGrossProfit + daySurplus - dayDeficit
 
