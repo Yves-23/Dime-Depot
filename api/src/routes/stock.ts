@@ -168,4 +168,28 @@ router.post('/received/bulk', authenticate, async (req: AuthRequest, res: Respon
   }
 })
 
+router.get('/entries/last-before/:date', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { date } = req.params
+    const lastDateResult = await query(
+      `SELECT entry_date FROM stock_entries 
+       WHERE business_id = $1 AND entry_date < $2
+       ORDER BY entry_date DESC LIMIT 1`,
+      [req.business!.id, date]
+    )
+    if (lastDateResult.rows.length === 0) {
+      return res.json({ entries: [], last_date: null })
+    }
+    const lastDate = lastDateResult.rows[0].entry_date.toISOString().split('T')[0]
+    const result = await query(
+      'SELECT * FROM stock_entries WHERE business_id = $1 AND entry_date = $2',
+      [req.business!.id, lastDate]
+    )
+    return res.json({ entries: result.rows, last_date: lastDate })
+  } catch (error) {
+    console.error('Get last stock entries error:', error)
+    return res.status(500).json({ error: 'Something went wrong' })
+  }
+})
+
 export default router

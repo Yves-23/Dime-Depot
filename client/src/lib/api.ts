@@ -151,6 +151,7 @@ export const stockAPI = {
     request('POST', '/api/stock/entries/bulk', { entries, date }),
   bulkSaveReceived: (received: any[], date: string) =>
     request('POST', '/api/stock/received/bulk', { received, date }),
+  getLastEntries: (date: string) => request('GET', `/api/stock/entries/last-before/${date}`),
 }
 
 // Finances API

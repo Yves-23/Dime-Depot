@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { stockAPI, suppliersAPI, productsAPI } from '../lib/api'
 import type { Product, Supplier, StockEntry } from '../lib/types'
-import { stockToPieces, formatStock, today, yesterday } from '../lib/helpers'
+import { stockToPieces, formatStock, today } from '../lib/helpers'
 import { t } from '../lib/i18n'
 import type { Language } from '../lib/i18n'
 import toast from 'react-hot-toast'
@@ -32,9 +32,10 @@ interface OverstockWarning {
   productName: string
   todayPieces: number
   maxAllowedPieces: number
-  yesterdayPieces: number
+  lastEntryPieces: number
   receivedPieces: number
   piecesPerCasse: number
+  lastDate: string
 }
 
 function isLocked(dateStr: string): boolean {
@@ -45,8 +46,6 @@ function isLocked(dateStr: string): boolean {
   return diffHours > 24
 }
 
-// Max pieces = half a casse minus 1
-// e.g. 24 pieces/casse → max pieces = 11
 function maxPieces(piecesPerCasse: number): number {
   return Math.floor(piecesPerCasse / 2) - 1
 }
@@ -60,7 +59,8 @@ export default function DailyEntry() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [entryDate, setEntryDate] = useState(today())
-  const [yesterdayEntries, setYesterdayEntries] = useState<StockEntry[]>([])
+  const [lastEntries, setLastEntries] = useState<StockEntry[]>([])
+  const [lastDate, setLastDate] = useState<string | null>(null)
   const [existingEntries, setExistingEntries] = useState<StockEntry[]>([])
   const [receivedPopup, setReceivedPopup] = useState<ReceivedPopup | null>(null)
   const [overstockWarning, setOverstockWarning] = useState<OverstockWarning | null>(null)
@@ -74,11 +74,11 @@ export default function DailyEntry() {
   async function loadData() {
     setLoading(true)
     try {
-      const [productsData, suppliersData, yesterdayData, existingData, existingReceivedData] =
+      const [productsData, suppliersData, lastEntriesData, existingData, existingReceivedData] =
         await Promise.all([
           productsAPI.getAll(),
           suppliersAPI.getAll(),
-          stockAPI.getEntries(yesterday(entryDate)),
+          stockAPI.getLastEntries(entryDate),  // ← now finds most recent entry before date
           stockAPI.getEntries(entryDate),
           stockAPI.getReceived(entryDate),
         ])
@@ -89,7 +89,8 @@ export default function DailyEntry() {
       const existingRec = existingReceivedData.received
 
       setSuppliers(suppliersData2)
-      setYesterdayEntries(yesterdayData.entries)
+      setLastEntries(lastEntriesData.entries)
+      setLastDate(lastEntriesData.last_date)
       setExistingEntries(existing)
 
       const newRows: StockInputRow[] = products.map(product => {
@@ -128,7 +129,6 @@ export default function DailyEntry() {
     if (locked) return
     const updated = [...rows]
 
-    // Validate pieces — cannot reach half a casse
     if (field === 'pieces') {
       const ppc = updated[index].product.pieces_per_casse
       const max = maxPieces(ppc)
@@ -136,7 +136,7 @@ export default function DailyEntry() {
       if (num > max) {
         toast.error(
           lang === 'rw'
-            ? `Umubare w' amacupa ntushobora kurenza ${max} (igice cy'ikaziye = ${ppc / 2} amacupa)`
+            ? `Umubare wa pcs ntushobora kurenza ${max} (igice cy'ikaziye = ${ppc / 2} pcs)`
             : `Pieces cannot exceed ${max} (half a crate = ${ppc / 2} pcs)`
         )
         updated[index] = { ...updated[index], [field]: String(max) }
@@ -149,8 +149,8 @@ export default function DailyEntry() {
     setRows(updated)
   }
 
-  function getYesterdayStock(productId: string): string {
-    const entry = yesterdayEntries.find(e => e.product_id === productId)
+  function getLastStock(productId: string): string {
+    const entry = lastEntries.find(e => e.product_id === productId)
     if (!entry) return '—'
     return formatStock(entry.casses, entry.halves, entry.pieces)
   }
@@ -190,18 +190,18 @@ export default function DailyEntry() {
     }
     setRows(updated)
     setReceivedPopup(null)
-    toast.success(lang === 'rw' ? 'Byongewe neza! Kanda Bika ubibike.' : 'Received stock added! Click Save to confirm.')
+    toast.success(lang === 'rw' ? 'Byongewe! Kanda Bika gukomeza.' : 'Received stock added! Click Save to confirm.')
   }
 
   function validateStock(): OverstockWarning | null {
-    if (yesterdayEntries.length === 0) return null
+    if (lastEntries.length === 0) return null
 
     for (const row of rows) {
-      const yesterdayEntry = yesterdayEntries.find(e => e.product_id === row.product.id)
-      if (!yesterdayEntry) continue
+      const lastEntry = lastEntries.find(e => e.product_id === row.product.id)
+      if (!lastEntry) continue
 
       const ppc = row.product.pieces_per_casse
-      const yesterdayPieces = stockToPieces(yesterdayEntry.casses, yesterdayEntry.halves, yesterdayEntry.pieces, ppc)
+      const lastEntryPieces = stockToPieces(lastEntry.casses, lastEntry.halves, lastEntry.pieces, ppc)
       const receivedPieces = stockToPieces(
         parseInt(row.supplier_casses) + parseInt(row.return_casses),
         parseInt(row.return_halves), parseInt(row.return_pieces), ppc
@@ -209,10 +209,18 @@ export default function DailyEntry() {
       const todayPieces = stockToPieces(
         parseInt(row.casses) || 0, parseInt(row.halves) || 0, parseInt(row.pieces) || 0, ppc
       )
-      const maxAllowed = yesterdayPieces + receivedPieces
+      const maxAllowed = lastEntryPieces + receivedPieces
 
       if (todayPieces > maxAllowed) {
-        return { productName: row.product.name, todayPieces, maxAllowedPieces: maxAllowed, yesterdayPieces, receivedPieces, piecesPerCasse: ppc }
+        return {
+          productName: row.product.name,
+          todayPieces,
+          maxAllowedPieces: maxAllowed,
+          lastEntryPieces,
+          receivedPieces,
+          piecesPerCasse: ppc,
+          lastDate: lastDate || '',
+        }
       }
     }
     return null
@@ -299,12 +307,23 @@ export default function DailyEntry() {
 
             <p className="text-gray-700 font-medium mb-2">{overstockWarning.productName}</p>
 
+            {/* Show which date the last entry was from */}
+            {overstockWarning.lastDate && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3 text-xs text-blue-700">
+                {lang === 'rw'
+                  ? `Barura rya nyuma ryaboneka kuri: ${overstockWarning.lastDate}`
+                  : `Last entry found from: ${overstockWarning.lastDate}`}
+              </div>
+            )}
+
             <div className="bg-orange-50 rounded-lg p-3 mb-4 space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">{lang === 'rw' ? 'Stock ya ejo' : "Yesterday's closing"}</span>
+                <span className="text-gray-500">
+                  {lang === 'rw' ? 'Stock ya nyuma' : 'Last closing stock'}
+                </span>
                 <span className="font-medium">{formatStock(
-                  Math.floor(overstockWarning.yesterdayPieces / overstockWarning.piecesPerCasse), 0,
-                  overstockWarning.yesterdayPieces % overstockWarning.piecesPerCasse
+                  Math.floor(overstockWarning.lastEntryPieces / overstockWarning.piecesPerCasse), 0,
+                  overstockWarning.lastEntryPieces % overstockWarning.piecesPerCasse
                 )}</span>
               </div>
               <div className="flex justify-between">
@@ -315,7 +334,7 @@ export default function DailyEntry() {
                 )}</span>
               </div>
               <div className="flex justify-between border-t border-orange-200 pt-1">
-                <span className="text-gray-500">{lang === 'rw' ? 'Ntarengwa' : 'Max allowed today'}</span>
+                <span className="text-gray-500">{lang === 'rw' ? 'Ntarengwa' : 'Max allowed'}</span>
                 <span className="font-semibold text-gray-900">{formatStock(
                   Math.floor(overstockWarning.maxAllowedPieces / overstockWarning.piecesPerCasse), 0,
                   overstockWarning.maxAllowedPieces % overstockWarning.piecesPerCasse
@@ -332,8 +351,8 @@ export default function DailyEntry() {
 
             <p className="text-sm text-gray-500 mb-5">
               {lang === 'rw'
-                ? "Stock y'uyu munsi ntirashobora kurenza iya ejo hashize hamwe n'ibyakiriye. Niba wakiriye stock nshya, kanda buto + mbere."
-                : "Today's stock cannot be higher than yesterday's closing stock plus what you received today. If you received new stock, please tap the + button first."}
+                ? "Stock y'uyu munsi ntirashobora kurenza iya nyuma hamwe n'ibyakiriye. Niba wakiriye stock nshya, kanda buto + mbere."
+                : "Today's stock cannot be higher than the last closing stock plus what you received today. If you received new stock, please tap the + button first."}
             </p>
 
             <button onClick={() => setOverstockWarning(null)} className="btn-primary w-full">
@@ -367,17 +386,30 @@ export default function DailyEntry() {
         </div>
       ) : null}
 
-      {yesterdayEntries.length === 0 && (
+      {/* Show which date is being used as reference */}
+      {lastEntries.length === 0 ? (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4 text-sm text-yellow-800">
           ⚠️ {t('no_yesterday', lang)}
         </div>
-      )}
+      ) : lastDate && lastDate !== (() => {
+        const d = new Date(entryDate)
+        d.setDate(d.getDate() - 1)
+        return d.toISOString().split('T')[0]
+      })() ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-sm text-blue-800">
+          ℹ️ {lang === 'rw'
+            ? `Barura rya nyuma ryaboneka kuri ${lastDate}. Niyo isesengura riri gukoreshwa.`
+            : `No entry found for yesterday. Using last entry from ${lastDate} for validation.`}
+        </div>
+      ) : null}
 
       {/* Received stock popup */}
       {receivedPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-5 w-full max-w-sm shadow-xl">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">{t('stock_received', lang)}</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+              {t('stock_received', lang)}
+            </h2>
             <p className="text-sm text-blue-600 font-medium mb-4">{receivedPopup.productName}</p>
             <div className="bg-blue-50 rounded-xl p-3 mb-3">
               <p className="text-xs font-semibold text-blue-700 mb-2">{t('from_supplier', lang)}</p>
@@ -398,7 +430,7 @@ export default function DailyEntry() {
                     onChange={e => setReceivedPopup({ ...receivedPopup, return_casses: e.target.value || '0' })} />
                 </div>
                 <div>
-                  <label className="text-xs text-orange-500 block mb-1">1/2</label>
+                  <label className="text-xs text-orange-500 block mb-1">{t('half', lang)}</label>
                   <select className="input text-center py-3 bg-white border-orange-200"
                     value={receivedPopup.return_halves}
                     onChange={e => setReceivedPopup({ ...receivedPopup, return_halves: e.target.value })}>
@@ -438,7 +470,7 @@ export default function DailyEntry() {
               <div className="col-span-3 text-xs text-gray-400 font-medium">{t('product', lang)}</div>
               <div className="col-span-2 text-xs text-gray-400 font-medium text-center">{t('crates', lang)}</div>
               <div className="col-span-2 text-xs text-gray-400 font-medium text-center">1/2</div>
-              <div className="col-span-2 text-xs text-gray-400 font-medium text-center">Pcs</div>
+              <div className="col-span-2 text-xs text-gray-400 font-medium text-center">{t('pieces', lang)}</div>
               <div className="col-span-1 text-xs text-gray-400 font-medium text-center">+</div>
             </div>
 
@@ -446,11 +478,11 @@ export default function DailyEntry() {
               {supplierRows.map(row => {
                 const globalIndex = rows.indexOf(row)
                 const hasReceived = hasReceivedStock(row)
-                const yesterdayEntry = yesterdayEntries.find(e => e.product_id === row.product.id)
+                const lastEntry = lastEntries.find(e => e.product_id === row.product.id)
                 const ppc = row.product.pieces_per_casse
                 const max = maxPieces(ppc)
-                const yesterdayPieces = yesterdayEntry
-                  ? stockToPieces(yesterdayEntry.casses, yesterdayEntry.halves, yesterdayEntry.pieces, ppc)
+                const lastEntryPieces = lastEntry
+                  ? stockToPieces(lastEntry.casses, lastEntry.halves, lastEntry.pieces, ppc)
                   : null
                 const receivedPieces = stockToPieces(
                   parseInt(row.supplier_casses) + parseInt(row.return_casses),
@@ -459,7 +491,7 @@ export default function DailyEntry() {
                 const todayPieces = stockToPieces(
                   parseInt(row.casses) || 0, parseInt(row.halves) || 0, parseInt(row.pieces) || 0, ppc
                 )
-                const isOverstock = yesterdayPieces !== null && todayPieces > (yesterdayPieces + receivedPieces)
+                const isOverstock = lastEntryPieces !== null && todayPieces > (lastEntryPieces + receivedPieces)
 
                 return (
                   <div key={row.product.id}>
@@ -468,7 +500,7 @@ export default function DailyEntry() {
                         <p className={`text-xs font-semibold leading-tight truncate ${isOverstock ? 'text-red-700' : 'text-gray-800'}`}>
                           {row.product.name}
                         </p>
-                        <p className="text-xs text-gray-400 leading-tight">{getYesterdayStock(row.product.id)}</p>
+                        <p className="text-xs text-gray-400 leading-tight">{getLastStock(row.product.id)}</p>
                       </div>
                       <div className="col-span-2">
                         <input type="number" min="0"
@@ -502,7 +534,7 @@ export default function DailyEntry() {
                     {isOverstock && !locked && (
                       <div className="px-1 pb-1">
                         <span className="text-xs text-red-500 font-medium">
-                          {lang === 'rw' ? '⚠️ Winjije byinshi kuruta iby\'s ejo!' : '⚠️ Too high from yesterday\'s entry!'}
+                          {lang === 'rw' ? '⚠️ Ni nyinshi! Kanda + wongeraho stock wakiriye mbere' : '⚠️ Too high! Use + to add received stock first'}
                         </span>
                       </div>
                     )}
