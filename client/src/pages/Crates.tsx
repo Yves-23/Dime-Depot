@@ -92,6 +92,7 @@ export default function Crates() {
   const [formPhone, setFormPhone] = useState('')
   const [formDate, setFormDate] = useState(today())
   const [saving, setSaving] = useState(false)
+  const [lendingSearch, setLendingSearch] = useState('')
 
   useEffect(() => { if (business) loadAll() }, [business])
 
@@ -156,6 +157,10 @@ export default function Crates() {
   const selectedBorrowings = selected ? borrowings.filter(b => b.crate_type_id === selected.id) : []
   const activeLendings = selectedLendings.filter(l => !l.is_fully_returned)
   const activeBorrowings = selectedBorrowings.filter(b => !b.is_returned)
+  const filteredLendings = activeLendings.filter(l =>
+  l.client_name.toLowerCase().includes(lendingSearch.toLowerCase()) ||
+  (l.phone && l.phone.includes(lendingSearch))
+)
 
   async function handleAdjustOwned() {
     if (!formValue || num(formValue) <= 0) { toast.error(lang === 'rw' ? 'Andika umubare' : 'Enter a number'); return }
@@ -626,8 +631,21 @@ export default function Crates() {
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                   {lang === 'rw' ? t('crates_lendings_title', lang) : 'Crates with clients'} ({activeLendings.length})
                 </p>
+                {/* Search */}
+                <div className="relative mb-3">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input type="text" className="input pl-9 w-full text-sm"
+                    placeholder={lang === 'rw' ? 'Shakisha izina cyangwa telefone...' : 'Search by name or phone...'}
+                    value={lendingSearch} onChange={e => setLendingSearch(e.target.value)} />
+                  {lendingSearch && (
+                    <button onClick={() => setLendingSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xl font-bold">×</button>
+                  )}
+                </div>
                 <div className="space-y-2">
-                  {activeLendings.map(lending => {
+                  {filteredLendings.map(lending => {
                     const remaining = num(lending.crates_lent) - num(lending.crates_returned)
                     return (
                       <div key={lending.id} className="bg-white border border-gray-200 rounded-xl p-4">
