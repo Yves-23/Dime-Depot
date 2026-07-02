@@ -70,12 +70,7 @@ function getBrandColors(supplierName: string) {
   }
 }
 
-export default function Crates() {
-  const { business } = useAuth()
-  const lang: Language = (business as any)?.language || 'en'
-  const token = localStorage.getItem('dime-depot-token')
-  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
-
+// All translations for Crates page
   const [crateTypes, setCrateTypes] = useState<CrateType[]>([])
   const [lendings, setLendings] = useState<Lending[]>([])
   const [borrowings, setBorrowings] = useState<Borrowing[]>([])
@@ -117,7 +112,6 @@ export default function Crates() {
 
       const freshRes = await fetch(`${API_URL}/api/crates/types`, { headers })
       const freshData = await freshRes.json()
-
       const parsedTypes = (freshData.crate_types || []).map((ct: any) => ({
         ...ct,
         total_owned: num(ct.total_owned),
@@ -140,10 +134,7 @@ export default function Crates() {
     }
   }
 
-  function resetForm() {
-    setFormValue(''); setFormName(''); setFormDate(today())
-  }
-
+  function resetForm() { setFormValue(''); setFormName(''); setFormDate(today()) }
   function openModal(m: ModalType) { resetForm(); setModal(m) }
 
   const selected = selectedCrateType
@@ -156,27 +147,25 @@ export default function Crates() {
   const activeBorrowings = selectedBorrowings.filter(b => !b.is_returned)
 
   async function handleAddOwned() {
-    if (!formValue || num(formValue) <= 0) { toast.error(lang === 'rw' ? 'Andika umubare' : 'Enter a number'); return }
+    if (!formValue || num(formValue) <= 0) { toast.error(t('crates_enter', lang)); return }
     if (!modal || modal.type !== 'add_owned') return
     setSaving(true)
     try {
       const isFirstTime = modal.crateType.total_owned === 0
       const newTotal = isFirstTime ? num(formValue) : modal.crateType.total_owned + num(formValue)
       const res = await fetch(`${API_URL}/api/crates/types/${modal.crateType.id}`, {
-        method: 'PUT', headers,
-        body: JSON.stringify({ total_owned: newTotal }),
+        method: 'PUT', headers, body: JSON.stringify({ total_owned: newTotal }),
       })
       if (!res.ok) throw new Error()
-      toast.success(lang === 'rw' ? 'Byabitswe!' : 'Saved!')
-      setModal(null)
-      loadAll()
+      toast.success(t('save', lang) + '!')
+      setModal(null); loadAll()
     } catch { toast.error('Failed') }
     finally { setSaving(false) }
   }
 
   async function handleLend() {
-    if (!formName.trim()) { toast.error(lang === 'rw' ? 'Andika izina' : 'Enter client name'); return }
-    if (!formValue || num(formValue) <= 0) { toast.error(lang === 'rw' ? 'Andika umubare' : 'Enter number'); return }
+    if (!formName.trim()) { toast.error(t('crates_client_name', lang)); return }
+    if (!formValue || num(formValue) <= 0) { toast.error(t('crates_num_crates', lang)); return }
     if (!modal || modal.type !== 'lend') return
     setSaving(true)
     try {
@@ -184,30 +173,29 @@ export default function Crates() {
         method: 'POST', headers,
         body: JSON.stringify({ crate_type_id: modal.crateType.id, client_name: formName, crates_lent: num(formValue), lent_date: formDate }),
       })
-      toast.success(lang === 'rw' ? 'Amaziye yatanzwe!' : 'Crates lent recorded!')
+      toast.success(t('crates_lend_btn', lang) + '!')
       setModal(null); loadAll()
     } catch { toast.error('Failed') }
     finally { setSaving(false) }
   }
 
   async function handleReturnLend() {
-    if (!formValue || num(formValue) <= 0) { toast.error(lang === 'rw' ? 'Andika umubare' : 'Enter number'); return }
+    if (!formValue || num(formValue) <= 0) { toast.error(t('crates_num_crates', lang)); return }
     if (!modal || modal.type !== 'return_lend') return
     setSaving(true)
     try {
       await fetch(`${API_URL}/api/crates/lendings/${modal.lending.id}/return`, {
-        method: 'PUT', headers,
-        body: JSON.stringify({ crates_returned: num(formValue) }),
+        method: 'PUT', headers, body: JSON.stringify({ crates_returned: num(formValue) }),
       })
-      toast.success(lang === 'rw' ? 'Byabitswe!' : 'Return recorded!')
+      toast.success(t('crates_return_btn', lang) + '!')
       setModal(null); loadAll()
     } catch { toast.error('Failed') }
     finally { setSaving(false) }
   }
 
   async function handleBorrow() {
-    if (!formName.trim()) { toast.error(lang === 'rw' ? 'Andika izina' : 'Enter name'); return }
-    if (!formValue || num(formValue) <= 0) { toast.error(lang === 'rw' ? 'Andika umubare' : 'Enter number'); return }
+    if (!formName.trim()) { toast.error(t('crates_borrowed_from', lang)); return }
+    if (!formValue || num(formValue) <= 0) { toast.error(t('crates_num_crates', lang)); return }
     if (!modal || modal.type !== 'borrow') return
     setSaving(true)
     try {
@@ -215,7 +203,7 @@ export default function Crates() {
         method: 'POST', headers,
         body: JSON.stringify({ crate_type_id: modal.crateType.id, borrowed_from: formName, crates_borrowed: num(formValue), borrowed_date: formDate }),
       })
-      toast.success(lang === 'rw' ? 'Amaziye yatakiwe!' : 'Borrowing recorded!')
+      toast.success(t('crates_borrow_btn', lang) + '!')
       setModal(null); loadAll()
     } catch { toast.error('Failed') }
     finally { setSaving(false) }
@@ -228,7 +216,7 @@ export default function Crates() {
       await fetch(`${API_URL}/api/crates/borrowings/${modal.borrowing.id}/return`, {
         method: 'PUT', headers, body: JSON.stringify({}),
       })
-      toast.success(lang === 'rw' ? 'Byasubijwe!' : 'Returned!')
+      toast.success(t('crates_yes_returned', lang) + '!')
       setModal(null); loadAll()
     } catch { toast.error('Failed') }
     finally { setSaving(false) }
@@ -236,12 +224,12 @@ export default function Crates() {
 
   async function deleteLending(id: string) {
     await fetch(`${API_URL}/api/crates/lendings/${id}`, { method: 'DELETE', headers })
-    toast.success(lang === 'rw' ? 'Yasibwe' : 'Deleted'); loadAll()
+    toast.success(t('crates_return_btn', lang)); loadAll()
   }
 
   async function deleteBorrowing(id: string) {
     await fetch(`${API_URL}/api/crates/borrowings/${id}`, { method: 'DELETE', headers })
-    toast.success(lang === 'rw' ? 'Yasibwe' : 'Deleted'); loadAll()
+    toast.success(t('crates_return_btn', lang)); loadAll()
   }
 
   if (loading) return (
@@ -261,163 +249,148 @@ export default function Crates() {
             {modal.type === 'add_owned' && (
               <>
                 <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                  {modal.crateType.total_owned === 0
-                    ? (lang === 'rw' ? 'Injiza amaziye yawe yose' : 'Set your total owned crates')
-                    : (lang === 'rw' ? 'Ongeraho amaziye washyuje' : 'Add newly bought crates')}
+                  {modal.crateType.total_owned === 0 ? t('crates_set_owned_title', lang) : t('crates_add_bought_title', lang)}
                 </h2>
                 <p className="text-sm font-medium mb-1" style={{ color: getBrandColors(modal.crateType.supplier_name).bg }}>
                   {modal.crateType.supplier_name}
                 </p>
                 {modal.crateType.total_owned > 0 && (
                   <p className="text-xs text-gray-400 mb-4">
-                    {lang === 'rw' ? 'Ufite ubu:' : 'Currently owned:'} <strong>{modal.crateType.total_owned}</strong>
-                    {' → '}{lang === 'rw' ? 'Bizaba:' : 'New total:'} <strong>{modal.crateType.total_owned + (num(formValue) || 0)}</strong>
+                    {t('crates_currently_owned', lang)} <strong>{modal.crateType.total_owned}</strong>
+                    {' → '}{t('crates_new_total', lang)} <strong>{modal.crateType.total_owned + (num(formValue) || 0)}</strong>
                   </p>
                 )}
                 <label className="label">
-                  {modal.crateType.total_owned === 0
-                    ? (lang === 'rw' ? 'Amaziye ufite yose' : 'Total crates you own')
-                    : (lang === 'rw' ? 'Amaziye washyuje' : 'Crates just bought')}
+                  {modal.crateType.total_owned === 0 ? t('crates_total_own_label', lang) : t('crates_just_bought_label', lang)}
                 </label>
                 <input type="number" min="1" className="input w-full text-2xl text-center py-4 mb-5"
                   placeholder="0" value={formValue} onChange={e => setFormValue(e.target.value)} autoFocus />
                 <div className="flex gap-3">
                   <button onClick={handleAddOwned} disabled={saving} className="btn-primary flex-1">
-                    {saving ? '...' : (lang === 'rw' ? 'Bika' : 'Save')}
+                    {saving ? '...' : t('save', lang)}
                   </button>
-                  <button onClick={() => setModal(null)} className="btn-secondary flex-1">
-                    {lang === 'rw' ? 'Oya' : 'Cancel'}
-                  </button>
+                  <button onClick={() => setModal(null)} className="btn-secondary flex-1">{t('cancel', lang)}</button>
                 </div>
               </>
             )}
 
             {modal.type === 'lend' && (
               <>
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                  {lang === 'rw' ? 'Tanga amaziye ku mukiriya' : 'Lend crates to client'}
-                </h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">{t('crates_lend_modal_title', lang)}</h2>
                 <p className="text-sm font-medium mb-4" style={{ color: getBrandColors(modal.crateType.supplier_name).bg }}>
                   {modal.crateType.supplier_name}
                 </p>
                 <div className="space-y-3 mb-5">
                   <div>
-                    <label className="label">{lang === 'rw' ? "Izina ry'umukiriya" : 'Client name'}</label>
-                    <input type="text" className="input w-full" placeholder={lang === 'rw' ? 'Andika izina' : 'Enter name'}
+                    <label className="label">{t('crates_client_name', lang)}</label>
+                    <input type="text" className="input w-full" placeholder={t('crates_enter_name', lang)}
                       value={formName} onChange={e => setFormName(e.target.value)} autoFocus />
                   </div>
                   <div>
-                    <label className="label">{lang === 'rw' ? "Umubare w'amaziye" : 'Number of crates'}</label>
+                    <label className="label">{t('crates_num_crates', lang)}</label>
                     <input type="number" min="1" className="input w-full text-xl text-center py-3"
                       placeholder="0" value={formValue} onChange={e => setFormValue(e.target.value)} />
                   </div>
                   <div>
-                    <label className="label">{lang === 'rw' ? 'Itariki' : 'Date'}</label>
-                    <input type="date" className="input w-full" value={formDate} onChange={e => setFormDate(e.target.value)} max={today()} />
+                    <label className="label">{t('crates_date', lang)}</label>
+                    <input type="date" className="input w-full" value={formDate}
+                      onChange={e => setFormDate(e.target.value)} max={today()} />
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <button onClick={handleLend} disabled={saving} className="btn-primary flex-1">
-                    {saving ? '...' : (lang === 'rw' ? 'Bika' : 'Save')}
+                    {saving ? '...' : t('save', lang)}
                   </button>
-                  <button onClick={() => setModal(null)} className="btn-secondary flex-1">{lang === 'rw' ? 'Oya' : 'Cancel'}</button>
+                  <button onClick={() => setModal(null)} className="btn-secondary flex-1">{t('cancel', lang)}</button>
                 </div>
               </>
             )}
 
             {modal.type === 'return_lend' && (
               <>
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                  {lang === 'rw' ? 'Amaziye yagaruwe' : 'Client returned crates'}
-                </h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">{t('crates_client_returned_title', lang)}</h2>
                 <p className="text-sm text-blue-600 font-medium mb-3 capitalize">{modal.lending.client_name}</p>
                 <div className="bg-gray-50 rounded-xl p-3 mb-4 space-y-1 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">{lang === 'rw' ? 'Yafashe' : 'Borrowed'}</span>
+                    <span className="text-gray-500">{t('crates_borrowed_label', lang)}</span>
                     <span className="font-bold">{modal.lending.crates_lent}</span>
                   </div>
                   {num(modal.lending.crates_returned) > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-gray-500">{lang === 'rw' ? 'Yarasubije' : 'Already returned'}</span>
+                      <span className="text-gray-500">{t('crates_already_returned', lang)}</span>
                       <span className="font-medium text-green-600">{modal.lending.crates_returned}</span>
                     </div>
                   )}
                   <div className="flex justify-between border-t pt-1 mt-1">
-                    <span className="text-gray-700 font-medium">{lang === 'rw' ? 'Asigaye' : 'Still owes'}</span>
+                    <span className="text-gray-700 font-medium">{t('crates_still_owes', lang)}</span>
                     <span className="font-bold text-red-600">{num(modal.lending.crates_lent) - num(modal.lending.crates_returned)}</span>
                   </div>
                 </div>
-                <label className="label">{lang === 'rw' ? 'Agaruye ubu' : 'Returning now'}</label>
+                <label className="label">{t('crates_returning_now', lang)}</label>
                 <input type="number" min="1" max={num(modal.lending.crates_lent) - num(modal.lending.crates_returned)}
                   className="input w-full text-xl text-center py-3 mb-5"
                   placeholder="0" value={formValue} onChange={e => setFormValue(e.target.value)} autoFocus />
                 <div className="flex gap-3">
                   <button onClick={handleReturnLend} disabled={saving} className="btn-primary flex-1">
-                    {saving ? '...' : (lang === 'rw' ? 'Bika' : 'Save')}
+                    {saving ? '...' : t('save', lang)}
                   </button>
-                  <button onClick={() => setModal(null)} className="btn-secondary flex-1">{lang === 'rw' ? 'Oya' : 'Cancel'}</button>
+                  <button onClick={() => setModal(null)} className="btn-secondary flex-1">{t('cancel', lang)}</button>
                 </div>
               </>
             )}
 
             {modal.type === 'borrow' && (
               <>
-                <h2 className="text-lg font-semibold text-gray-900 mb-1">
-                  {lang === 'rw' ? 'Taka amaziye' : 'Borrow crates'}
-                </h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-1">{t('crates_borrow_modal_title', lang)}</h2>
                 <p className="text-sm font-medium mb-4" style={{ color: getBrandColors(modal.crateType.supplier_name).bg }}>
                   {modal.crateType.supplier_name}
                 </p>
                 <div className="space-y-3 mb-5">
                   <div>
-                    <label className="label">{lang === 'rw' ? 'Watakiye nde' : 'Borrowed from'}</label>
-                    <input type="text" className="input w-full"
-                      placeholder={lang === 'rw' ? 'Uruganda / Umuturanyi' : 'Supplier / Neighbour'}
+                    <label className="label">{t('crates_borrowed_from', lang)}</label>
+                    <input type="text" className="input w-full" placeholder={t('crates_supplier_neighbour', lang)}
                       value={formName} onChange={e => setFormName(e.target.value)} autoFocus />
                   </div>
                   <div>
-                    <label className="label">{lang === 'rw' ? "Umubare w'amaziye" : 'Number of crates'}</label>
+                    <label className="label">{t('crates_num_crates', lang)}</label>
                     <input type="number" min="1" className="input w-full text-xl text-center py-3"
                       placeholder="0" value={formValue} onChange={e => setFormValue(e.target.value)} />
                   </div>
                   <div>
-                    <label className="label">{lang === 'rw' ? 'Itariki' : 'Date'}</label>
-                    <input type="date" className="input w-full" value={formDate} onChange={e => setFormDate(e.target.value)} max={today()} />
+                    <label className="label">{t('crates_date', lang)}</label>
+                    <input type="date" className="input w-full" value={formDate}
+                      onChange={e => setFormDate(e.target.value)} max={today()} />
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <button onClick={handleBorrow} disabled={saving} className="btn-primary flex-1">
-                    {saving ? '...' : (lang === 'rw' ? 'Bika' : 'Save')}
+                    {saving ? '...' : t('save', lang)}
                   </button>
-                  <button onClick={() => setModal(null)} className="btn-secondary flex-1">{lang === 'rw' ? 'Oya' : 'Cancel'}</button>
+                  <button onClick={() => setModal(null)} className="btn-secondary flex-1">{t('cancel', lang)}</button>
                 </div>
               </>
             )}
 
             {modal.type === 'return_borrow' && (
               <>
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                  {lang === 'rw' ? 'Subiza amaziye' : 'Return borrowed crates'}
-                </h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">{t('crates_return_borrow_title', lang)}</h2>
                 <div className="bg-gray-50 rounded-xl p-3 mb-4 space-y-1 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-500">{lang === 'rw' ? 'Watakiye kuri' : 'Borrowed from'}</span>
+                    <span className="text-gray-500">{t('crates_borrowed_from', lang)}</span>
                     <span className="font-bold">{modal.borrowing.borrowed_from}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">{lang === 'rw' ? 'Umubare' : 'Crates'}</span>
+                    <span className="text-gray-500">{t('crates_unit', lang)}</span>
                     <span className="font-bold text-orange-600">{modal.borrowing.crates_borrowed}</span>
                   </div>
                 </div>
-                <p className="text-sm text-gray-500 mb-5">
-                  {lang === 'rw' ? 'Emeza ko wasubije amaziye yose kuri uyu muntu.' : 'Confirm you returned all crates to this person.'}
-                </p>
+                <p className="text-sm text-gray-500 mb-5">{t('crates_confirm_return', lang)}</p>
                 <div className="flex gap-3">
                   <button onClick={handleReturnBorrow} disabled={saving}
                     className="flex-1 bg-green-600 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-green-700">
-                    {saving ? '...' : (lang === 'rw' ? 'Yego, narasubije' : 'Yes, returned all')}
+                    {saving ? '...' : t('crates_yes_returned', lang)}
                   </button>
-                  <button onClick={() => setModal(null)} className="btn-secondary flex-1">{lang === 'rw' ? 'Oya' : 'Cancel'}</button>
+                  <button onClick={() => setModal(null)} className="btn-secondary flex-1">{t('cancel', lang)}</button>
                 </div>
               </>
             )}
@@ -441,49 +414,41 @@ export default function Crates() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              {lang === 'rw' ? 'Subira inyuma' : 'Back'}
+              {t('crates_back', lang)}
             </button>
 
             {/* Brand header card */}
             <div className="rounded-2xl shadow-lg p-5 mb-5" style={{ background: colors.bg }}>
-              <p style={{ color: colors.subText }} className="text-xs font-semibold uppercase tracking-widest mb-3">
+              <p style={{ color: colors.subText }} className="text-[10px] font-semibold uppercase tracking-widest mb-3">
                 {selected.supplier_name}
               </p>
 
               {/* Total owned row */}
               <div className="flex items-center justify-between mb-4 pb-4" style={{ borderBottom: `1px solid ${colors.badgeBg}` }}>
                 <div>
-                  <p style={{ color: colors.subText }} className="text-xs mb-0.5">
-                    {lang === 'rw' ? 'Amaziye ufite yose' : 'Total owned'}
-                  </p>
+                  <p style={{ color: colors.subText }} className="text-xs mb-0.5">{t('crates_total_owned', lang)}</p>
                   <p style={{ color: colors.text }} className="text-3xl font-black">{owned}</p>
                 </div>
                 <button onClick={() => openModal({ type: 'add_owned', crateType: selected })}
                   style={{ background: colors.badgeBg, color: colors.text }}
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold hover:opacity-80 transition-opacity">
                   <span className="text-lg leading-none">+</span>
-                  {lang === 'rw' ? 'Ongeraho' : 'Add more'}
+                  {t('crates_add_more', lang)}
                 </button>
               </div>
 
               {/* 3 stats */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-center">
-                  <p style={{ color: colors.subText }} className="text-[10px] mb-1">
-                    {lang === 'rw' ? 'Ari hano' : 'At depot'}
-                  </p>
-                  <p style={{ color: colors.text }} className={`text-2xl font-black ${atDepot < 0 ? 'opacity-60' : ''}`}>{atDepot}</p>
+                  <p style={{ color: colors.subText }} className="text-[10px] mb-1">{t('crates_at_depot', lang)}</p>
+                  <p style={{ color: colors.text }} className="text-2xl font-black">{atDepot}</p>
                 </div>
                 <div className="text-center">
-                  <p style={{ color: colors.subText }} className="text-[10px] mb-1">
-                    {lang === 'rw' ? 'Ku bakiriya' : 'With clients'}
-                  </p>
+                  <p style={{ color: colors.subText }} className="text-[10px] mb-1">{t('crates_with_clients', lang)}</p>
                   <p style={{ color: colors.text }} className="text-2xl font-black">{lentOut}</p>
                 </div>
                 <div className="text-center">
-                  <p style={{ color: colors.subText }} className="text-[10px] mb-1">
-                    {lang === 'rw' ? 'Watakiye' : 'You borrowed'}
-                  </p>
+                  <p style={{ color: colors.subText }} className="text-[10px] mb-1">{t('crates_you_borrowed', lang)}</p>
                   <p style={{ color: colors.text }} className="text-2xl font-black">{borrowed}</p>
                 </div>
               </div>
@@ -492,12 +457,10 @@ export default function Crates() {
             {/* First time prompt */}
             {owned === 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 flex items-center justify-between gap-3">
-                <p className="text-amber-800 text-sm font-medium">
-                  {lang === 'rw' ? 'Banza injiza amaziye yawe yose ufite' : 'Start by entering how many crates you own'}
-                </p>
+                <p className="text-amber-800 text-sm font-medium">{t('crates_first_time_msg', lang)}</p>
                 <button onClick={() => openModal({ type: 'add_owned', crateType: selected })}
                   className="bg-amber-600 text-white px-3 py-2 rounded-lg text-sm font-semibold shrink-0 hover:bg-amber-700">
-                  {lang === 'rw' ? 'Injiza' : 'Enter'}
+                  {t('crates_enter', lang)}
                 </button>
               </div>
             )}
@@ -506,11 +469,11 @@ export default function Crates() {
             <div className="grid grid-cols-2 gap-3 mb-6">
               <button onClick={() => openModal({ type: 'lend', crateType: selected })}
                 className="bg-white border-2 border-red-200 text-red-700 hover:bg-red-50 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all">
-                🤝 {lang === 'rw' ? 'Tanga ku mukiriya' : 'Lend to client'}
+                {t('crates_lend_btn', lang)}
               </button>
               <button onClick={() => openModal({ type: 'borrow', crateType: selected })}
                 className="bg-white border-2 border-orange-200 text-orange-700 hover:bg-orange-50 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all">
-                🔄 {lang === 'rw' ? 'Taka amaziye' : 'Borrow crates'}
+                {t('crates_borrow_btn', lang)}
               </button>
             </div>
 
@@ -518,7 +481,7 @@ export default function Crates() {
             {activeLendings.length > 0 && (
               <div className="mb-5">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                  {lang === 'rw' ? 'Amaziye ku bakiriya' : 'Crates with clients'} ({activeLendings.length})
+                  {t('crates_lendings_title', lang)} ({activeLendings.length})
                 </p>
                 <div className="space-y-2">
                   {activeLendings.map(lending => {
@@ -530,23 +493,23 @@ export default function Crates() {
                             <p className="font-semibold text-gray-900 capitalize">{lending.client_name}</p>
                             <p className="text-xs text-gray-400 mt-0.5">{formatDateSafe(lending.lent_date)}</p>
                             <div className="flex gap-4 mt-1.5 text-sm flex-wrap">
-                              <span className="text-gray-500">{lang === 'rw' ? 'Yafashe' : 'Lent'}: <strong>{lending.crates_lent}</strong></span>
+                              <span className="text-gray-500">{t('crates_lent', lang)}: <strong>{lending.crates_lent}</strong></span>
                               {num(lending.crates_returned) > 0 && (
-                                <span className="text-green-600">{lang === 'rw' ? 'Yasubije' : 'Returned'}: <strong>{lending.crates_returned}</strong></span>
+                                <span className="text-green-600">{t('crates_returned', lang)}: <strong>{lending.crates_returned}</strong></span>
                               )}
                             </div>
                             <p className="text-red-600 font-bold text-base mt-1">
-                              {lang === 'rw' ? 'Asigaye' : 'Still owes'}: {remaining}
+                              {t('crates_still_owes', lang)}: {remaining}
                             </p>
                           </div>
                           <div className="flex flex-col gap-1.5 shrink-0">
                             <button onClick={() => openModal({ type: 'return_lend', lending })}
                               className="bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-semibold hover:bg-green-700">
-                              ↩ {lang === 'rw' ? 'Yagaruye' : 'Return'}
+                              {t('delete', lang)}
                             </button>
                             <button onClick={() => deleteLending(lending.id)}
                               className="text-gray-400 hover:text-red-500 text-xs text-center py-1">
-                              {lang === 'rw' ? 'Siba' : 'Delete'}
+                              {t('delete', lang)}
                             </button>
                           </div>
                         </div>
@@ -561,7 +524,7 @@ export default function Crates() {
             {activeBorrowings.length > 0 && (
               <div className="mb-5">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                  {lang === 'rw' ? 'Amaziye watakiye' : 'Crates you borrowed'} ({activeBorrowings.length})
+                  {t('crates_borrowings_title', lang)} ({activeBorrowings.length})
                 </p>
                 <div className="space-y-2">
                   {activeBorrowings.map(borrowing => (
@@ -571,17 +534,17 @@ export default function Crates() {
                           <p className="font-semibold text-gray-900">{borrowing.borrowed_from}</p>
                           <p className="text-xs text-gray-400 mt-0.5">{formatDateSafe(borrowing.borrowed_date)}</p>
                           <p className="text-orange-600 font-bold text-base mt-1">
-                            {borrowing.crates_borrowed} {lang === 'rw' ? 'amaziye' : 'crates'}
+                            {borrowing.crates_borrowed} {t('crates_unit', lang)}
                           </p>
                         </div>
                         <div className="flex flex-col gap-1.5 shrink-0">
                           <button onClick={() => openModal({ type: 'return_borrow', borrowing })}
                             className="bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-semibold hover:bg-green-700">
-                            ✓ {lang === 'rw' ? 'Narasubije' : 'Returned'}
+                            {t('crates_returned_btn', lang)}
                           </button>
                           <button onClick={() => deleteBorrowing(borrowing.id)}
                             className="text-gray-400 hover:text-red-500 text-xs text-center py-1">
-                            {lang === 'rw' ? 'Siba' : 'Delete'}
+                            {t('delete', lang)}
                           </button>
                         </div>
                       </div>
@@ -595,17 +558,17 @@ export default function Crates() {
             {selectedLendings.filter(l => l.is_fully_returned).length > 0 && (
               <div className="mb-5">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                  {lang === 'rw' ? 'Yarasubije yose' : 'Fully returned'}
+                  {t('crates_fully_returned_title', lang)}
                 </p>
                 <div className="space-y-1">
                   {selectedLendings.filter(l => l.is_fully_returned).map(lending => (
                     <div key={lending.id} className="bg-gray-50 border border-gray-100 rounded-xl p-3 flex items-center justify-between opacity-60">
                       <div>
                         <p className="text-sm font-medium text-gray-700 capitalize">{lending.client_name}</p>
-                        <p className="text-xs text-gray-400">{lending.crates_lent} {lang === 'rw' ? 'amaziye — yose yarasubije' : 'crates — all returned'}</p>
+                        <p className="text-xs text-gray-400">{lending.crates_lent} {t('crates_all_returned_suffix', lang)}</p>
                       </div>
                       <button onClick={() => deleteLending(lending.id)} className="text-gray-400 hover:text-red-500 text-xs">
-                        {lang === 'rw' ? 'Siba' : 'Delete'}
+                        {t('delete', lang)}
                       </button>
                     </div>
                   ))}
@@ -615,9 +578,7 @@ export default function Crates() {
 
             {activeLendings.length === 0 && activeBorrowings.length === 0 && owned > 0 && (
               <div className="text-center py-8 text-gray-400">
-                <p className="text-sm font-medium">
-                  ✅ {lang === 'rw' ? 'Amaziye yose ari hano — nta kibazo' : 'All crates accounted for'}
-                </p>
+                <p className="text-sm font-medium">✅ {t('crates_all_accounted_detail', lang)}</p>
               </div>
             )}
           </div>
@@ -628,10 +589,8 @@ export default function Crates() {
       {!selected && (
         <div>
           <div className="mb-6">
-            <h1 className="page-title mb-0">{lang === 'rw' ? 'Amaziye' : 'Crates'}</h1>
-            <p className="text-gray-400 text-sm mt-1">
-              {lang === 'rw' ? 'Kurikirana amaziye yawe' : 'Track your crates'}
-            </p>
+            <h1 className="page-title mb-0">{t('crates_title', lang)}</h1>
+            <p className="text-gray-400 text-sm mt-1">{t('crates_sub', lang)}</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -656,12 +615,8 @@ export default function Crates() {
 
                   {owned === 0 ? (
                     <div className="py-3">
-                      <p style={{ color: colors.text }} className="text-lg font-bold mb-1">
-                        {lang === 'rw' ? 'Ntago washyizeho' : 'Not set up'}
-                      </p>
-                      <p style={{ color: colors.subText }} className="text-xs">
-                        {lang === 'rw' ? 'Kanda utangire' : 'Tap to get started'}
-                      </p>
+                      <p style={{ color: colors.text }} className="text-lg font-bold mb-1">{t('crates_not_set', lang)}</p>
+                      <p style={{ color: colors.subText }} className="text-xs">{t('crates_tap_start', lang)}</p>
                     </div>
                   ) : (
                     <>
@@ -669,28 +624,27 @@ export default function Crates() {
                         {atDepot}
                       </p>
                       <p style={{ color: colors.subText }} className="text-[10px] mb-4">
-                        {lang === 'rw' ? `ari hano · ${owned} ufite` : `at depot · ${owned} owned`}
+                        {t('crates_at_depot_of', lang)} {owned} {t('crates_owned_suffix', lang)}
                       </p>
-
                       <div className="space-y-1.5">
                         {activeLendingsCount > 0 && (
                           <div style={{ background: colors.badgeBg }} className="rounded-lg px-2.5 py-1.5">
                             <p style={{ color: colors.badgeText }} className="text-xs font-semibold">
-                              {activeLendingsCount} {lang === 'rw' ? 'bakiriya bafite amaziye' : 'clients holding crates'}
+                              {activeLendingsCount} {t('crates_clients_holding', lang)}
                             </p>
                           </div>
                         )}
                         {activeBorrowingsCount > 0 && (
                           <div style={{ background: colors.badgeBg }} className="rounded-lg px-2.5 py-1.5">
                             <p style={{ color: colors.badgeText }} className="text-xs font-semibold">
-                              {lang === 'rw' ? 'Ufite watakiye' : 'You have borrowed crates'}
+                              {t('crates_you_borrowed_badge', lang)}
                             </p>
                           </div>
                         )}
                         {activeLendingsCount === 0 && activeBorrowingsCount === 0 && (
                           <div style={{ background: colors.badgeBg }} className="rounded-lg px-2.5 py-1.5">
                             <p style={{ color: colors.badgeText }} className="text-xs font-semibold">
-                              {lang === 'rw' ? 'Byose bihari' : 'All accounted for'}
+                              {t('crates_all_accounted', lang)}
                             </p>
                           </div>
                         )}
