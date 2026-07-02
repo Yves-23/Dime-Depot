@@ -176,6 +176,7 @@ export async function createTables() {
       business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
       crate_type_id UUID REFERENCES crate_types(id) ON DELETE CASCADE,
       client_name TEXT NOT NULL,
+      phone TEXT,
       crates_lent INTEGER NOT NULL,
       crates_returned INTEGER DEFAULT 0,
       is_fully_returned BOOLEAN DEFAULT FALSE,
@@ -192,11 +193,16 @@ export async function createTables() {
       crate_type_id UUID REFERENCES crate_types(id) ON DELETE CASCADE,
       borrowed_from TEXT NOT NULL,
       crates_borrowed INTEGER NOT NULL,
+      crates_returned INTEGER DEFAULT 0,
       is_returned BOOLEAN DEFAULT FALSE,
       borrowed_date DATE NOT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `)
+
+  // Add new columns to existing crate tables if they don't exist
+  await query(`ALTER TABLE crate_lendings ADD COLUMN IF NOT EXISTS phone TEXT`)
+  await query(`ALTER TABLE crate_borrowings ADD COLUMN IF NOT EXISTS crates_returned INTEGER DEFAULT 0`)
 
   // tables ready
 }
