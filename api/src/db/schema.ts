@@ -157,5 +157,46 @@ export async function createTables() {
     )
   `)
 
+  // Crate types table (Bralirwa, Skol, etc.)
+  await query(`
+    CREATE TABLE IF NOT EXISTS crate_types (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+      supplier_id UUID REFERENCES suppliers(id) ON DELETE CASCADE,
+      total_owned INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(business_id, supplier_id)
+    )
+  `)
+
+  // Crate lendings — crates lent to clients
+  await query(`
+    CREATE TABLE IF NOT EXISTS crate_lendings (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+      crate_type_id UUID REFERENCES crate_types(id) ON DELETE CASCADE,
+      client_name TEXT NOT NULL,
+      crates_lent INTEGER NOT NULL,
+      crates_returned INTEGER DEFAULT 0,
+      is_fully_returned BOOLEAN DEFAULT FALSE,
+      lent_date DATE NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `)
+
+  // Crate borrowings — crates borrowed from supplier or neighbours
+  await query(`
+    CREATE TABLE IF NOT EXISTS crate_borrowings (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+      crate_type_id UUID REFERENCES crate_types(id) ON DELETE CASCADE,
+      borrowed_from TEXT NOT NULL,
+      crates_borrowed INTEGER NOT NULL,
+      is_returned BOOLEAN DEFAULT FALSE,
+      borrowed_date DATE NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `)
+
   // tables ready
 }
