@@ -14,6 +14,7 @@ import priceRoutes from './routes/prices'
 import stockRoutes from './routes/stock'
 import financeRoutes from './routes/finances'
 import buyingPriceRoutes from './routes/buying-prices'
+import crateRoutes from './routes/crates'
 
 dotenv.config()
 
@@ -62,6 +63,7 @@ app.use('/api/prices', priceRoutes)
 app.use('/api/stock', stockRoutes)
 app.use('/api/finances', financeRoutes)
 app.use('/api/buying-prices', buyingPriceRoutes)
+app.use('/api/crates', crateRoutes)
 
 // 404 handler
 app.use((req, res) => {

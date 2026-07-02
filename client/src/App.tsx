@@ -19,6 +19,7 @@ import AdminBusinesses from './pages/admin/AdminBusinesses'
 import AdminSettings from './pages/admin/AdminSettings'
 import UnpaidDebts from './pages/UnpaidDebts'
 import Settings from './pages/Settings'
+import Crates from './pages/Crates'
 
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -111,6 +112,7 @@ function AppRoutes() {
       <Route path="/profit" element={<ProtectedRoute><Profit /></ProtectedRoute>} />
       <Route path="/unpaid-debts" element={<ProtectedRoute><UnpaidDebts /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+      <Route path="/crates" element={<ProtectedRoute><Crates /></ProtectedRoute>} />
       {/* Default redirects */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
