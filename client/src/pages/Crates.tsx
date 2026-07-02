@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { suppliersAPI } from '../lib/api'
 import type { Supplier } from '../lib/types'
+import { t } from '../lib/i18n'
 import type { Language } from '../lib/i18n'
 import toast from 'react-hot-toast'
 
@@ -70,7 +71,12 @@ function getBrandColors(supplierName: string) {
   }
 }
 
-// All translations for Crates page
+export default function Crates() {
+  const { business } = useAuth()
+  const lang: Language = (business as any)?.language || 'en'
+  const token = localStorage.getItem('dime-depot-token')
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+
   const [crateTypes, setCrateTypes] = useState<CrateType[]>([])
   const [lendings, setLendings] = useState<Lending[]>([])
   const [borrowings, setBorrowings] = useState<Borrowing[]>([])
