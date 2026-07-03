@@ -42,7 +42,7 @@ export default function Dashboard() {
         suppliersData,
         pricesData,
         todayEntries,
-        lastEntriesData,  // ← use getLastEntries instead of yesterday
+        lastEntriesData,
         receivedToday,
         financesData,
       ] = await Promise.all([
@@ -50,7 +50,7 @@ export default function Dashboard() {
         suppliersAPI.getAll(),
         pricesAPI.getAll(),
         stockAPI.getEntries(todayDate),
-        stockAPI.getLastEntries(todayDate),  // ← finds most recent before today
+        stockAPI.getLastEntries(todayDate),
         stockAPI.getReceived(todayDate),
         financesAPI.get(todayDate),
       ])
@@ -80,7 +80,6 @@ export default function Dashboard() {
         const todayEntry = todayEntriesList.find((e: any) => e.product_id === product.id)
         const lastEntry = lastEntriesList.find((e: any) => e.product_id === product.id)
         const received = receivedList.find((r: any) => r.product_id === product.id)
-
         if (!todayEntry || !lastEntry) return
 
         const lastPieces = stockToPieces(lastEntry.casses, lastEntry.halves, lastEntry.pieces, product.pieces_per_casse)
@@ -109,7 +108,6 @@ export default function Dashboard() {
 
       setSummary({ totalRevenue, supplierRevenues, totalProductsSold })
 
-      // Calculate balance
       const momo = parseFloat(financesData.finances?.momo) || 0
       const cash = parseFloat(financesData.finances?.cash) || 0
       const debtsTotal = (financesData.debts || []).reduce((sum: number, d: any) => sum + parseFloat(d.amount || 0), 0)
@@ -208,17 +206,18 @@ export default function Dashboard() {
       )}
 
       {/* Quick actions */}
-      <div className="section-title">{t('quick_actions', lang)}</div>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      <p className="section-title">{t('quick_actions', lang)}</p>
 
+      {/* Row 1: Daily Entry + Reports */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
         <Link to="/daily-entry" className="card hover:shadow-md transition-shadow cursor-pointer text-center">
           <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-3">
             <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-gray-900">{t('daily_entry', lang)}</p>
-          <p className="text-xs text-gray-500 mt-1">{t('daily_entry_sub', lang)}</p>
+          <p className="text-sm font-semibold text-gray-900">{t('daily_entry', lang)}</p>
+          <p className="text-xs text-gray-400 mt-1">{t('daily_entry_sub', lang)}</p>
         </Link>
 
         <Link to="/reports" className="card hover:shadow-md transition-shadow cursor-pointer text-center">
@@ -227,18 +226,36 @@ export default function Dashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-gray-900">{t('reports', lang)}</p>
-          <p className="text-xs text-gray-500 mt-1">{t('reports_sub', lang)}</p>
+          <p className="text-sm font-semibold text-gray-900">{t('reports', lang)}</p>
+          <p className="text-xs text-gray-400 mt-1">{t('reports_sub', lang)}</p>
         </Link>
+      </div>
 
+      {/* Row 2: Crates — centered */}
+      <div className="flex justify-center mb-4">
+        <Link to="/crates"
+          className="card hover:shadow-md transition-shadow cursor-pointer text-center w-1/2"
+          style={{ background: 'linear-gradient(135deg, #1B5E20 0%, #2E7D32 50%, #F9A825 100%)' }}>
+          <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center mx-auto mb-3">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M10 12v4m4-4v4" />
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-white">{lang === 'rw' ? 'Kaziye' : 'Crates'}</p>
+          <p className="text-xs text-white text-opacity-80 mt-1">{lang === 'rw' ? 'Kurikirana Kaziye zawe' : 'Track your crates'}</p>
+        </Link>
+      </div>
+
+      {/* Row 3: Profit + Unpaid Debts */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
         <Link to="/profit" className="card hover:shadow-md transition-shadow cursor-pointer text-center">
           <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center mx-auto mb-3">
             <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-gray-900">{t('profit', lang)}</p>
-          <p className="text-xs text-gray-500 mt-1">{t('profit_sub', lang)}</p>
+          <p className="text-sm font-semibold text-gray-900">{t('profit', lang)}</p>
+          <p className="text-xs text-gray-400 mt-1">{t('profit_sub', lang)}</p>
         </Link>
 
         <Link to="/unpaid-debts" className="card hover:shadow-md transition-shadow cursor-pointer text-center">
@@ -247,18 +264,21 @@ export default function Dashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-gray-900">{t('unpaid_debts', lang)}</p>
-          <p className="text-xs text-gray-500 mt-1">{t('unpaid_debts_sub', lang)}</p>
+          <p className="text-sm font-semibold text-gray-900">{t('unpaid_debts', lang)}</p>
+          <p className="text-xs text-gray-400 mt-1">{t('unpaid_debts_sub', lang)}</p>
         </Link>
+      </div>
 
+      {/* Row 4: Products + Prices */}
+      <div className="grid grid-cols-2 gap-4">
         <Link to="/products" className="card hover:shadow-md transition-shadow cursor-pointer text-center">
           <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-3">
             <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-gray-900">{t('products', lang)}</p>
-          <p className="text-xs text-gray-500 mt-1">{t('products_sub', lang)}</p>
+          <p className="text-sm font-semibold text-gray-900">{t('products', lang)}</p>
+          <p className="text-xs text-gray-400 mt-1">{t('products_sub', lang)}</p>
         </Link>
 
         <Link to="/prices" className="card hover:shadow-md transition-shadow cursor-pointer text-center">
@@ -267,11 +287,11 @@ export default function Dashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
           </div>
-          <p className="text-sm font-medium text-gray-900">{t('prices', lang)}</p>
-          <p className="text-xs text-gray-500 mt-1">{t('prices_sub', lang)}</p>
+          <p className="text-sm font-semibold text-gray-900">{t('prices', lang)}</p>
+          <p className="text-xs text-gray-400 mt-1">{t('prices_sub', lang)}</p>
         </Link>
-
       </div>
+
     </div>
   )
 }

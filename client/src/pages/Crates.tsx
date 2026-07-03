@@ -696,7 +696,7 @@ export default function Crates() {
                           <p className="font-semibold text-gray-900">{borrowing.borrowed_from}</p>
                           <p className="text-xs text-gray-400 mt-0.5">{formatDateSafe(borrowing.borrowed_date)}</p>
                           <div className="flex gap-4 mt-1.5 text-sm flex-wrap">
-                            <span className="text-gray-500">{lang === 'rw' ? 'Watakiye' : 'Borrowed'}: <strong>{borrowing.crates_borrowed}</strong></span>
+                            <span className="text-gray-500">{lang === 'rw' ? 'Watiye' : 'Borrowed'}: <strong>{borrowing.crates_borrowed}</strong></span>
                             {num(borrowing.crates_returned) > 0 && (
                               <span className="text-green-600">{lang === 'rw' ? 'Wasubije' : 'Returned'}: <strong>{borrowing.crates_returned}</strong></span>
                             )}
