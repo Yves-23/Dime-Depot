@@ -50,7 +50,9 @@ const icons = {
   ),
   crates: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M10 12v4m4-4v4" />
+      <rect x="2" y="7" width="20" height="14" rx="2" strokeWidth={2}/>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 11h20M2 15h20M8 7V21M12 7V21M16 7V21"/>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3h8l2 4H6L8 3z"/>
     </svg>
   ),
 }

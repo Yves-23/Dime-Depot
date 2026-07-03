@@ -145,19 +145,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* No entry today */}
-      {!loading && !hasEntryToday && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-orange-800 font-medium text-sm">📋 {t('no_entry_today', lang)}</p>
-            <p className="text-orange-600 text-xs mt-0.5">{t('no_entry_subtitle', lang)}</p>
-          </div>
-          <Link to="/daily-entry" className="btn-primary text-sm shrink-0">
-            {t('enter_now', lang)}
-          </Link>
-        </div>
-      )}
-
       {/* Balance card */}
       {!loading && balance && (
         <div className={`card mb-6 border-2 ${
@@ -238,7 +225,9 @@ export default function Dashboard() {
           style={{ background: 'linear-gradient(135deg, #1B5E20 0%, #2E7D32 50%, #F9A825 100%)' }}>
           <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center mx-auto mb-3">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M10 12v4m4-4v4" />
+              <rect x="2" y="7" width="20" height="14" rx="2" strokeWidth={2}/>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 11h20M2 15h20M8 7V21M12 7V21M16 7V21"/>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3h8l2 4H6L8 3z"/>
             </svg>
           </div>
           <p className="text-sm font-semibold text-white">{lang === 'rw' ? 'Kaziye' : 'Crates'}</p>
