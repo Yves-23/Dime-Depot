@@ -149,7 +149,7 @@ export default function Reports() {
 
         const sold = piecesToStock(soldPieces, product.pieces_per_casse)
         const pricePerCasse = getPriceForDate(prices, product.id, reportDate)
-        const revenue = pricePerCasse ? Math.ceil(((soldPieces / product.pieces_per_casse) * pricePerCasse) / 100) * 100 : 0
+        const revenue = pricePerCasse ? Math.ceil(((soldPieces / product.pieces_per_casse) * pricePerCasse) / 50) * 50 : 0
 
         rows.push({ product, supplier, soldPieces, soldCasses: sold.casses, soldHalves: sold.halves, soldRemainingPieces: sold.pieces, pricePerCasse, revenue })
       })

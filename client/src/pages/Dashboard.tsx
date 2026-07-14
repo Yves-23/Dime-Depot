@@ -92,7 +92,7 @@ export default function Dashboard() {
         if (soldPieces <= 0) return
 
         const price = getPriceForDate(prices, product.id, todayDate)
-        const revenue = Math.ceil(((soldPieces / product.pieces_per_casse) * price) / 100) * 100
+        const revenue = Math.ceil(((soldPieces / product.pieces_per_casse) * price) / 50) * 50
 
         totalRevenue += revenue
         totalProductsSold++
