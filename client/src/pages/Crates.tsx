@@ -71,9 +71,9 @@ function getBrandColors(supplierName: string) {
     subText: isBralirwa ? 'rgba(255,255,255,0.65)' : 'rgba(208,38,43,0.65)',
     badgeBg: isBralirwa ? 'rgba(255,255,255,0.15)' : 'rgba(208,38,43,0.12)',
     badgeText: isBralirwa ? 'rgba(255,255,255,0.9)' : '#D0262B',
-    // Borrow card colors (lighter shade)
-    borrowBg: isBralirwa ? '#FFFFFF' : '#FFFFFF',
-    borrowText: isBralirwa ? '#4FB848' : '#D0262B',
+    // Borrow card colors — same gray for both suppliers
+    borrowBg: '#7a7d7c',
+    borrowText: '#FFFFFF',
   }
 }
 
@@ -678,17 +678,17 @@ export default function Crates() {
                   {activeBorrowings.map(borrowing => {
                     const remaining = num(borrowing.crates_borrowed) - num(borrowing.crates_returned)
                     return (
-                      <div key={borrowing.id} className="rounded-xl p-4" style={{ background: colors.borrowBg + '22', border: `1px solid ${colors.borrowBg}` }}>
+                      <div key={borrowing.id} className="rounded-xl p-4" style={{ background: '#7a7d7c', border: '1px solid #7a7d7c' }}>
                         <div className="mb-3">
-                          <p className="font-semibold text-gray-900">{borrowing.borrowed_from}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{formatDateSafe(borrowing.borrowed_date)}</p>
+                          <p className="font-semibold" style={{ color: '#FFFFFF' }}>{borrowing.borrowed_from}</p>
+                          <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>{formatDateSafe(borrowing.borrowed_date)}</p>
                           <div className="flex gap-4 mt-1.5 text-sm flex-wrap">
-                            <span className="text-gray-500">{lang === 'rw' ? 'Watakiye' : 'Borrowed'}: <strong>{borrowing.crates_borrowed}</strong></span>
+                            <span style={{ color: 'rgba(255,255,255,0.8)' }}>{lang === 'rw' ? 'Watakiye' : 'Borrowed'}: <strong>{borrowing.crates_borrowed}</strong></span>
                             {num(borrowing.crates_returned) > 0 && (
-                              <span className="text-green-600">{lang === 'rw' ? 'Wasubije' : 'Returned'}: <strong>{borrowing.crates_returned}</strong></span>
+                              <span style={{ color: 'rgba(255,255,255,0.9)' }}>{lang === 'rw' ? 'Wasubije' : 'Returned'}: <strong>{borrowing.crates_returned}</strong></span>
                             )}
                           </div>
-                          <p className="text-orange-600 font-bold text-base mt-1">
+                          <p className="font-bold text-base mt-1" style={{ color: '#FFFFFF' }}>
                             {lang === 'rw' ? 'Asigaye' : 'Still owe'}: {remaining}
                           </p>
                         </div>
@@ -727,16 +727,13 @@ export default function Crates() {
                   return Object.entries(grouped)
                     .sort(([a], [b]) => b.localeCompare(a))
                     .map(([date, items]) => (
-                      <div key={date} className="mb-3">
-                        <p className="text-xs font-semibold text-gray-400 mb-1.5">{formatDateSafe(date)}</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {items.map(lending => (
-                            <div key={lending.id} className="bg-green-50 border border-green-100 rounded-xl p-2.5">
-                              <p className="text-xs font-semibold text-green-800 capitalize truncate">{lending.client_name}</p>
-                              <p className="text-xs text-green-600 font-medium mt-0.5">{lending.crates_lent} {lang === 'rw' ? 'zose ziratiruwe' : 'crates ✓'}</p>
-                            </div>
-                          ))}
-                        </div>
+                      <div key={date} className="mb-4">
+                        <p className="text-xs font-bold text-gray-500 mb-1">{formatDateSafe(date)}</p>
+                        {items.map(lending => (
+                          <p key={lending.id} className="text-sm text-gray-700 py-0.5 capitalize">
+                            {lending.client_name} - {lending.crates_lent}
+                          </p>
+                        ))}
                       </div>
                     ))
                 })()}
@@ -758,19 +755,13 @@ export default function Crates() {
                   return Object.entries(grouped)
                     .sort(([a], [b]) => b.localeCompare(a))
                     .map(([date, items]) => (
-                      <div key={date} className="mb-3">
-                        <p className="text-xs font-semibold text-gray-400 mb-1.5">{formatDateSafe(date)}</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {items.map(borrowing => (
-                            <div key={borrowing.id} className="rounded-xl p-2.5"
-                              style={{ background: colors.borrowBg + '33', border: `1px solid ${colors.borrowBg}` }}>
-                              <p className="text-xs font-semibold capitalize truncate"
-                                style={{ color: colors.borrowText }}>{borrowing.borrowed_from}</p>
-                              <p className="text-xs font-medium mt-0.5"
-                                style={{ color: colors.borrowText }}>{borrowing.crates_borrowed} {lang === 'rw' ? 'narasubije ✓' : 'crates ✓'}</p>
-                            </div>
-                          ))}
-                        </div>
+                      <div key={date} className="mb-4">
+                        <p className="text-xs font-bold text-gray-400 mb-1">{formatDateSafe(date)}</p>
+                        {items.map(borrowing => (
+                          <p key={borrowing.id} className="text-sm py-0.5" style={{ color: '#7a7d7c' }}>
+                            {borrowing.borrowed_from} - {borrowing.crates_borrowed}
+                          </p>
+                        ))}
                       </div>
                     ))
                 })()}
