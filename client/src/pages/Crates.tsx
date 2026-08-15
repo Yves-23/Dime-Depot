@@ -72,8 +72,8 @@ function getBrandColors(supplierName: string) {
     badgeBg: isBralirwa ? 'rgba(255,255,255,0.15)' : 'rgba(208,38,43,0.12)',
     badgeText: isBralirwa ? 'rgba(255,255,255,0.9)' : '#D0262B',
     // Borrow card colors (lighter shade)
-    borrowBg: isBralirwa ? '#4FB848' : '#FEE55D',
-    borrowText: isBralirwa ? '#FFFFFF' : '#D0262B',
+    borrowBg: isBralirwa ? '#FFFFFF' : '#FFFFFF',
+    borrowText: isBralirwa ? '#4FB848' : '#D0262B',
   }
 }
 
@@ -716,17 +716,64 @@ export default function Crates() {
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
                   {lang === 'rw' ? t('crates_fully_returned_title', lang) : 'Fully returned'} ({selectedLendings.filter(l => l.is_fully_returned).length})
                 </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {selectedLendings.filter(l => l.is_fully_returned).map(lending => (
-                    <div key={lending.id} className="bg-gray-50 border border-gray-100 rounded-xl p-2.5 opacity-70">
-                      <div className="flex items-start justify-between gap-1 mb-1">
-                        <p className="text-xs font-semibold text-gray-700 capitalize truncate flex-1">{lending.client_name}</p>
+                {(() => {
+                  const returnedLendings = selectedLendings.filter(l => l.is_fully_returned)
+                  const grouped: Record<string, Lending[]> = {}
+                  returnedLendings.forEach(l => {
+                    const date = l.lent_date.split('T')[0]
+                    if (!grouped[date]) grouped[date] = []
+                    grouped[date].push(l)
+                  })
+                  return Object.entries(grouped)
+                    .sort(([a], [b]) => b.localeCompare(a))
+                    .map(([date, items]) => (
+                      <div key={date} className="mb-3">
+                        <p className="text-xs font-semibold text-gray-400 mb-1.5">{formatDateSafe(date)}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {items.map(lending => (
+                            <div key={lending.id} className="bg-green-50 border border-green-100 rounded-xl p-2.5">
+                              <p className="text-xs font-semibold text-green-800 capitalize truncate">{lending.client_name}</p>
+                              <p className="text-xs text-green-600 font-medium mt-0.5">{lending.crates_lent} {lang === 'rw' ? 'zose ziratiruwe' : 'crates ✓'}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <p className="text-xs text-gray-400">{formatDateSafe(lending.lent_date)}</p>
-                      <p className="text-xs text-green-600 font-medium mt-0.5">{lending.crates_lent} {lang === 'rw' ? 'zose ziratiruwe' : 'crates ✓'}</p>
-                    </div>
-                  ))}
-                </div>
+                    ))
+                })()}
+              </div>
+            )}
+            {selectedBorrowings.filter(b => b.is_returned).length > 0 && (
+              <div className="mb-5">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+                  {lang === 'rw' ? 'Narasubije nyirazo' : 'Returned to owners'} ({selectedBorrowings.filter(b => b.is_returned).length})
+                </p>
+                {(() => {
+                  const returnedBorrowings = selectedBorrowings.filter(b => b.is_returned)
+                  const grouped: Record<string, Borrowing[]> = {}
+                  returnedBorrowings.forEach(b => {
+                    const date = b.borrowed_date.split('T')[0]
+                    if (!grouped[date]) grouped[date] = []
+                    grouped[date].push(b)
+                  })
+                  return Object.entries(grouped)
+                    .sort(([a], [b]) => b.localeCompare(a))
+                    .map(([date, items]) => (
+                      <div key={date} className="mb-3">
+                        <p className="text-xs font-semibold text-gray-400 mb-1.5">{formatDateSafe(date)}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {items.map(borrowing => (
+                            <div key={borrowing.id} className="rounded-xl p-2.5"
+                              style={{ background: colors.borrowBg + '33', border: `1px solid ${colors.borrowBg}` }}>
+                              <p className="text-xs font-semibold capitalize truncate"
+                                style={{ color: colors.borrowText }}>{borrowing.borrowed_from}</p>
+                              <p className="text-xs font-medium mt-0.5"
+                                style={{ color: colors.borrowText }}>{borrowing.crates_borrowed} {lang === 'rw' ? 'narasubije ✓' : 'crates ✓'}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                })()}
               </div>
             )}
 
