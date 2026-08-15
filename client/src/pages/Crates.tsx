@@ -65,12 +65,15 @@ function num(val: any): number {
 function getBrandColors(supplierName: string) {
   const isBralirwa = supplierName.toLowerCase().includes('bral')
   return {
-    bg: isBralirwa ? '#1B5E20' : '#F9A825',
-    text: isBralirwa ? '#ffffff' : '#1a1a1a',
-    subText: isBralirwa ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.5)',
-    badgeBg: isBralirwa ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
-    badgeText: isBralirwa ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.65)',
-    accent: isBralirwa ? '#4CAF50' : '#E53935',
+    // Summary card colors
+    bg: isBralirwa ? '#0E5A36' : '#FEDA1B',
+    text: isBralirwa ? '#FFFFFF' : '#D0262B',
+    subText: isBralirwa ? 'rgba(255,255,255,0.65)' : 'rgba(208,38,43,0.65)',
+    badgeBg: isBralirwa ? 'rgba(255,255,255,0.15)' : 'rgba(208,38,43,0.12)',
+    badgeText: isBralirwa ? 'rgba(255,255,255,0.9)' : '#D0262B',
+    // Borrow card colors (lighter shade)
+    borrowBg: isBralirwa ? '#4FB848' : '#FEE55D',
+    borrowText: isBralirwa ? '#FFFFFF' : '#D0262B',
   }
 }
 
@@ -92,7 +95,6 @@ export default function Crates() {
   const [formPhone, setFormPhone] = useState('')
   const [formDate, setFormDate] = useState(today())
   const [saving, setSaving] = useState(false)
-  const [lendingSearch, setLendingSearch] = useState('')
 
   useEffect(() => { if (business) loadAll() }, [business])
 
@@ -157,10 +159,6 @@ export default function Crates() {
   const selectedBorrowings = selected ? borrowings.filter(b => b.crate_type_id === selected.id) : []
   const activeLendings = selectedLendings.filter(l => !l.is_fully_returned)
   const activeBorrowings = selectedBorrowings.filter(b => !b.is_returned)
-  const filteredLendings = activeLendings.filter(l =>
-  l.client_name.toLowerCase().includes(lendingSearch.toLowerCase()) ||
-  (l.phone && l.phone.includes(lendingSearch))
-)
 
   async function handleAdjustOwned() {
     if (!formValue || num(formValue) <= 0) { toast.error(lang === 'rw' ? 'Andika umubare' : 'Enter a number'); return }
@@ -613,14 +611,16 @@ export default function Crates() {
               </div>
             )}
 
-            {/* Action buttons */}
+            {/* Action buttons — distinct colors so user can tell the difference */}
             <div className="grid grid-cols-2 gap-3 mb-6">
               <button onClick={() => openModal({ type: 'lend', crateType: selected })}
-                className="bg-white border-2 border-red-200 text-red-700 hover:bg-red-50 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all">
+                style={{ background: colors.bg, color: colors.text }}
+                className="px-4 py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90">
                 {lang === 'rw' ? t('crates_lend_btn', lang) : 'Lend to client'}
               </button>
               <button onClick={() => openModal({ type: 'borrow', crateType: selected })}
-                className="bg-white border-2 border-orange-200 text-orange-700 hover:bg-orange-50 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all">
+                style={{ background: colors.borrowBg, color: colors.borrowText }}
+                className="px-4 py-3.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90">
                 {lang === 'rw' ? t('crates_borrow_btn', lang) : 'Borrow crates'}
               </button>
             </div>
@@ -631,21 +631,8 @@ export default function Crates() {
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                   {lang === 'rw' ? t('crates_lendings_title', lang) : 'Crates with clients'} ({activeLendings.length})
                 </p>
-                {/* Search */}
-                <div className="relative mb-3">
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  <input type="text" className="input pl-9 w-full text-sm"
-                    placeholder={lang === 'rw' ? 'Shakisha izina cyangwa telefone...' : 'Search by name or phone...'}
-                    value={lendingSearch} onChange={e => setLendingSearch(e.target.value)} />
-                  {lendingSearch && (
-                    <button onClick={() => setLendingSearch('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xl font-bold">×</button>
-                  )}
-                </div>
                 <div className="space-y-2">
-                  {filteredLendings.map(lending => {
+                  {activeLendings.map(lending => {
                     const remaining = num(lending.crates_lent) - num(lending.crates_returned)
                     return (
                       <div key={lending.id} className="bg-white border border-gray-200 rounded-xl p-4">
@@ -691,12 +678,12 @@ export default function Crates() {
                   {activeBorrowings.map(borrowing => {
                     const remaining = num(borrowing.crates_borrowed) - num(borrowing.crates_returned)
                     return (
-                      <div key={borrowing.id} className="bg-white border border-gray-200 rounded-xl p-4">
+                      <div key={borrowing.id} className="rounded-xl p-4" style={{ background: colors.borrowBg + '22', border: `1px solid ${colors.borrowBg}` }}>
                         <div className="mb-3">
                           <p className="font-semibold text-gray-900">{borrowing.borrowed_from}</p>
                           <p className="text-xs text-gray-400 mt-0.5">{formatDateSafe(borrowing.borrowed_date)}</p>
                           <div className="flex gap-4 mt-1.5 text-sm flex-wrap">
-                            <span className="text-gray-500">{lang === 'rw' ? 'Watiye' : 'Borrowed'}: <strong>{borrowing.crates_borrowed}</strong></span>
+                            <span className="text-gray-500">{lang === 'rw' ? 'Watakiye' : 'Borrowed'}: <strong>{borrowing.crates_borrowed}</strong></span>
                             {num(borrowing.crates_returned) > 0 && (
                               <span className="text-green-600">{lang === 'rw' ? 'Wasubije' : 'Returned'}: <strong>{borrowing.crates_returned}</strong></span>
                             )}
@@ -723,17 +710,20 @@ export default function Crates() {
               </div>
             )}
 
-            {/* Fully returned history */}
+            {/* Fully returned history — compact grid */}
             {selectedLendings.filter(l => l.is_fully_returned).length > 0 && (
               <div className="mb-5">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                  {lang === 'rw' ? t('crates_fully_returned_title', lang) : 'Fully returned'}
+                  {lang === 'rw' ? t('crates_fully_returned_title', lang) : 'Fully returned'} ({selectedLendings.filter(l => l.is_fully_returned).length})
                 </p>
-                <div className="space-y-1">
+                <div className="grid grid-cols-2 gap-2">
                   {selectedLendings.filter(l => l.is_fully_returned).map(lending => (
-                    <div key={lending.id} className="bg-gray-50 border border-gray-100 rounded-xl p-3 opacity-60">
-                      <p className="text-sm font-medium text-gray-700 capitalize">{lending.client_name}</p>
-                      <p className="text-xs text-gray-400">{lending.crates_lent} {lang === 'rw' ? t('crates_all_returned_suffix', lang) : 'crates — all returned'}</p>
+                    <div key={lending.id} className="bg-gray-50 border border-gray-100 rounded-xl p-2.5 opacity-70">
+                      <div className="flex items-start justify-between gap-1 mb-1">
+                        <p className="text-xs font-semibold text-gray-700 capitalize truncate flex-1">{lending.client_name}</p>
+                      </div>
+                      <p className="text-xs text-gray-400">{formatDateSafe(lending.lent_date)}</p>
+                      <p className="text-xs text-green-600 font-medium mt-0.5">{lending.crates_lent} {lang === 'rw' ? 'zose ziratiruwe' : 'crates ✓'}</p>
                     </div>
                   ))}
                 </div>
@@ -801,8 +791,8 @@ export default function Crates() {
                           </div>
                         )}
                         {activeBorrowingsCount > 0 && (
-                          <div style={{ background: colors.badgeBg }} className="rounded-lg px-2.5 py-1.5">
-                            <p style={{ color: colors.badgeText }} className="text-xs font-semibold">
+                          <div style={{ background: colors.borrowBg + '33' }} className="rounded-lg px-2.5 py-1.5">
+                            <p style={{ color: colors.borrowText, fontWeight: 600 }} className="text-xs">
                               {lang === 'rw' ? t('crates_you_borrowed_badge', lang) : 'You have borrowed crates'}
                             </p>
                           </div>
