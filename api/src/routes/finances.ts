@@ -82,7 +82,7 @@ router.post('/:date', authenticate, async (req: AuthRequest, res: Response) => {
         // is_paid is recalculated based on amount_paid vs new amount
         await query(
           `UPDATE daily_debts
-           SET client_name = $1,
+           SET client_name = $1, 
                amount = $2,
                is_paid = (amount_paid >= $2)
            WHERE id = $3 AND business_id = $4`,
