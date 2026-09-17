@@ -159,8 +159,12 @@ router.put('/debts/:id/paid', authenticate, async (req: AuthRequest, res: Respon
     const { id } = req.params
     const { is_paid } = req.body
 
+    // When marking as paid → set amount_paid = amount so recalculation stays paid
+    // When marking as unpaid → set amount_paid = 0 so recalculation stays unpaid
     const result = await query(
-      `UPDATE daily_debts SET is_paid = $1
+      `UPDATE daily_debts
+       SET is_paid = $1,
+           amount_paid = CASE WHEN $1 = true THEN amount ELSE 0 END
        WHERE id = $2 AND business_id = $3
        RETURNING *`,
       [is_paid, id, req.business!.id]
