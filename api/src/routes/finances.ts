@@ -67,56 +67,57 @@ router.post('/:date', authenticate, async (req: AuthRequest, res: Response) => {
       [req.business!.id, date, parseFloat(momo) || 0, parseFloat(cash) || 0]
     )
 
-    // STEP 1: Fetch ALL existing debts BEFORE deleting
-    const existingResult = await query(
-      'SELECT id, amount_paid, is_paid FROM daily_debts WHERE business_id = $1 AND entry_date = $2',
-      [req.business!.id, date]
-    )
+    // Handle debts — UPDATE existing ones in place, INSERT new ones, DELETE removed ones
+    const validDebts = debts
+      ? debts.filter((d: any) => d.client_name?.trim() && parseFloat(d.amount) > 0)
+      : []
 
-    const existingMap: Record<string, { amount_paid: number; is_paid: boolean }> = {}
-    for (const row of existingResult.rows) {
-      existingMap[row.id] = {
-        amount_paid: parseFloat(row.amount_paid || 0),
-        is_paid: row.is_paid === true,
-      }
-    }
+    const keptIds: string[] = []
 
-    // STEP 2: Delete old debts
-    await query(
-      'DELETE FROM daily_debts WHERE business_id = $1 AND entry_date = $2',
-      [req.business!.id, date]
-    )
+    for (const debt of validDebts) {
+      const newAmount = parseFloat(debt.amount)
 
-    // STEP 3: Reinsert with preserved amount_paid and accurate is_paid
-    if (debts && debts.length > 0) {
-      const validDebts = debts.filter((d: any) => d.client_name?.trim() && parseFloat(d.amount) > 0)
-      for (const debt of validDebts) {
-        const newAmount = parseFloat(debt.amount)
-
-        // Restore amount_paid from before deletion
-        let amountPaid = 0
-        if (debt.id && existingMap[debt.id]) {
-          amountPaid = existingMap[debt.id].amount_paid
-        }
-
-        // Accurate is_paid: always based on whether amount_paid covers the new amount
-        // This handles ALL cases:
-        // - No payments yet → not paid
-        // - Partial payments → check if they cover new amount
-        // - Fully paid before → check if amount_paid still covers new amount
-        // - Corrected to higher amount → reopens with remaining balance
-        // - Corrected to lower amount → stays paid if amount_paid >= new amount
-        const isPaid = amountPaid >= newAmount
-
+      if (debt.id) {
+        // Existing debt — UPDATE name and amount only, NEVER touch amount_paid or is_paid
+        // is_paid is recalculated based on amount_paid vs new amount
         await query(
-          `INSERT INTO daily_debts (business_id, entry_date, client_name, amount, amount_paid, is_paid)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [req.business!.id, date, debt.client_name.trim(), newAmount, amountPaid, isPaid]
+          `UPDATE daily_debts
+           SET client_name = $1,
+               amount = $2,
+               is_paid = (amount_paid >= $2)
+           WHERE id = $3 AND business_id = $4`,
+          [debt.client_name.trim(), newAmount, debt.id, req.business!.id]
         )
+        keptIds.push(debt.id)
+      } else {
+        // New debt — INSERT fresh with no payments
+        const result = await query(
+          `INSERT INTO daily_debts (business_id, entry_date, client_name, amount, amount_paid, is_paid)
+           VALUES ($1, $2, $3, $4, 0, false)
+           RETURNING id`,
+          [req.business!.id, date, debt.client_name.trim(), newAmount]
+        )
+        keptIds.push(result.rows[0].id)
       }
     }
 
-    // Delete old expenses and re-insert
+    // Delete only debts the user explicitly removed (not in keptIds)
+    if (keptIds.length > 0) {
+      await query(
+        `DELETE FROM daily_debts
+         WHERE business_id = $1 AND entry_date = $2
+         AND id NOT IN (${keptIds.map((_: any, i: number) => `$${i + 3}`).join(',')})`,
+        [req.business!.id, date, ...keptIds]
+      )
+    } else {
+      // User removed all debts
+      await query(
+        'DELETE FROM daily_debts WHERE business_id = $1 AND entry_date = $2',
+        [req.business!.id, date]
+      )
+    }
+
+    // Delete old expenses and re-insert (expenses have no paid state so safe to replace)
     await query(
       'DELETE FROM daily_expenses WHERE business_id = $1 AND entry_date = $2',
       [req.business!.id, date]
