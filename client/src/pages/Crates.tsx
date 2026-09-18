@@ -806,7 +806,11 @@ export default function Crates() {
                                   {items.map(item => (
                                     <div
                                       key={item.id}
-                                      className="bg-gray-50 rounded-lg px-3 py-2.5"
+                                      className={`rounded-lg px-3 py-2.5 border ${
+                                        item.return_type === 'client_return'
+                                          ? 'bg-green-50 border-green-100'
+                                          : 'bg-blue-50 border-blue-100'
+                                      }`}
                                     >
                                       {item.return_type === 'client_return' ? (
                                         <>
@@ -814,7 +818,7 @@ export default function Crates() {
                                             {item.client_name}
                                           </p>
 
-                                          <p className="text-xs text-gray-500 mt-0.5">
+                                          <p className="text-xs text-green-700 mt-0.5">
                                             {t('crates_returned_action', lang)} {item.quantity} {t('crates_unit', lang)}
                                           </p>
                                         </>
@@ -824,7 +828,7 @@ export default function Crates() {
                                             {item.borrowed_from}
                                           </p>
 
-                                          <p className="text-xs text-gray-500 mt-0.5">
+                                          <p className="text-xs text-blue-700 mt-0.5">
                                             {t('crates_you_returned_action', lang)} {item.quantity} {t('crates_unit', lang)}
                                           </p>
                                         </>
