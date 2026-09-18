@@ -583,12 +583,12 @@ const translations = {
     crates_yes_returned: 'Yego, ndazisubije',
     crates_enter_name: 'Andika izina',
     crates_supplier_neighbour: 'Uruganda / Umuturanyi',
-    crates_return_history: 'Ama kaziye wasubije',
+    crates_return_history: 'kaziye watiruriwe + wasubije mu gihe cyashize',
     crates_return_actions: 'gusubiza ama kaziye',
     crates_returned_action: 'Yatiruye',
-    crates_you_returned_action: 'Wasubije',
+    crates_you_returned_action: 'Wamusubije',
     crates_show_more: 'Reba ibindi',
-    crates_all_history_shown: 'Reba ama kaziye yose wasubije',
+    crates_all_history_shown: 'Reba ibyabaye byose hano',
 
     // Auth — Reset PIN
     forgot_pin_title: "Wibagiwe umubare w'ibanga?",
