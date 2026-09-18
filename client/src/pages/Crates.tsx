@@ -833,7 +833,7 @@ export default function Crates() {
                                   ))}
                                 </div>
                               </div>
-                            ))}
+                            ))} 
 
                           {/* Show more */}
                           {historyLimit < selectedReturnHistory.length && (
