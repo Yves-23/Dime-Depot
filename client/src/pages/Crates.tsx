@@ -38,6 +38,20 @@ interface Borrowing {
   borrowed_date: string
 }
 
+interface ReturnHistory {
+  id: string
+  crate_type_id: string
+  lending_id: string | null
+  borrowing_id: string | null
+  return_type: 'client_return' | 'borrowed_return'
+  quantity: number
+  return_date: string
+  created_at: string
+  supplier_name: string
+  client_name: string | null
+  borrowed_from: string | null
+}
+
 type ModalType =
   | { type: 'adjust_owned'; crateType: CrateType; mode: 'add' | 'remove' }
   | { type: 'lend'; crateType: CrateType }
@@ -86,6 +100,9 @@ export default function Crates() {
   const [crateTypes, setCrateTypes] = useState<CrateType[]>([])
   const [lendings, setLendings] = useState<Lending[]>([])
   const [borrowings, setBorrowings] = useState<Borrowing[]>([])
+  const [returnHistory, setReturnHistory] = useState<ReturnHistory[]>([])
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [historyLimit, setHistoryLimit] = useState(10)
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<ModalType>(null)
   const [selectedCrateType, setSelectedCrateType] = useState<CrateType | null>(null)
@@ -101,15 +118,17 @@ export default function Crates() {
   async function loadAll() {
     setLoading(true)
     try {
-      const [typesRes, lendingsRes, borrowingsRes, suppliersData] = await Promise.all([
+      const [typesRes, lendingsRes, borrowingsRes, historyRes, suppliersData] = await Promise.all([
         fetch(`${API_URL}/api/crates/types`, { headers }),
         fetch(`${API_URL}/api/crates/lendings`, { headers }),
         fetch(`${API_URL}/api/crates/borrowings`, { headers }),
+        fetch(`${API_URL}/api/crates/return-history`, { headers }),
         suppliersAPI.getAll(),
       ])
       const typesData = await typesRes.json()
       const lendingsData = await lendingsRes.json()
       const borrowingsData = await borrowingsRes.json()
+      const historyData = await historyRes.json()
       const suppList: Supplier[] = suppliersData.suppliers || []
       const existingTypes: CrateType[] = typesData.crate_types || []
 
@@ -134,6 +153,7 @@ export default function Crates() {
       setCrateTypes(parsedTypes)
       setLendings(lendingsData.lendings || [])
       setBorrowings(borrowingsData.borrowings || [])
+      setReturnHistory(historyData.return_history || [])
 
       if (selectedCrateType) {
         const updated = parsedTypes.find((ct: CrateType) => ct.id === selectedCrateType.id)
@@ -159,6 +179,7 @@ export default function Crates() {
   const selectedBorrowings = selected ? borrowings.filter(b => b.crate_type_id === selected.id) : []
   const activeLendings = selectedLendings.filter(l => !l.is_fully_returned)
   const activeBorrowings = selectedBorrowings.filter(b => !b.is_returned)
+  const selectedReturnHistory = selected ? returnHistory.filter(h => h.crate_type_id === selected.id) : []
 
   async function handleAdjustOwned() {
     if (!formValue || num(formValue) <= 0) { toast.error(lang === 'rw' ? 'Andika umubare' : 'Enter a number'); return }
@@ -710,61 +731,134 @@ export default function Crates() {
               </div>
             )}
 
-            {/* Fully returned history — compact grid */}
-            {selectedLendings.filter(l => l.is_fully_returned).length > 0 && (
-              <div className="mb-5">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                  {lang === 'rw' ? t('crates_fully_returned_title', lang) : 'Fully returned'} ({selectedLendings.filter(l => l.is_fully_returned).length})
-                </p>
-                {(() => {
-                  const returnedLendings = selectedLendings.filter(l => l.is_fully_returned)
-                  const grouped: Record<string, Lending[]> = {}
-                  returnedLendings.forEach(l => {
-                    const date = l.lent_date.split('T')[0]
-                    if (!grouped[date]) grouped[date] = []
-                    grouped[date].push(l)
-                  })
-                  return Object.entries(grouped)
-                    .sort(([a], [b]) => b.localeCompare(a))
-                    .map(([date, items]) => (
-                      <div key={date} className="mb-4">
-                        <p className="text-xs font-bold text-gray-500 mb-1">{formatDateSafe(date)}</p>
-                        {items.map(lending => (
-                          <p key={lending.id} className="text-sm text-gray-700 py-0.5 capitalize">
-                            {lending.client_name} - {lending.crates_lent}
-                          </p>
-                        ))}
-                      </div>
-                    ))
-                })()}
-              </div>
-            )}
-            {selectedBorrowings.filter(b => b.is_returned).length > 0 && (
-              <div className="mb-5">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                  {lang === 'rw' ? 'Narasubije nyirazo' : 'Returned to owners'} ({selectedBorrowings.filter(b => b.is_returned).length})
-                </p>
-                {(() => {
-                  const returnedBorrowings = selectedBorrowings.filter(b => b.is_returned)
-                  const grouped: Record<string, Borrowing[]> = {}
-                  returnedBorrowings.forEach(b => {
-                    const date = b.borrowed_date.split('T')[0]
-                    if (!grouped[date]) grouped[date] = []
-                    grouped[date].push(b)
-                  })
-                  return Object.entries(grouped)
-                    .sort(([a], [b]) => b.localeCompare(a))
-                    .map(([date, items]) => (
-                      <div key={date} className="mb-4">
-                        <p className="text-xs font-bold text-gray-400 mb-1">{formatDateSafe(date)}</p>
-                        {items.map(borrowing => (
-                          <p key={borrowing.id} className="text-sm py-0.5" style={{ color: '#7a7d7c' }}>
-                            {borrowing.borrowed_from} - {borrowing.crates_borrowed}
-                          </p>
-                        ))}
-                      </div>
-                    ))
-                })()}
+            {/* Return history — actual actions grouped by the date they were recorded */}
+            {selectedReturnHistory.length > 0 && (
+              <div className="mb-5 border border-gray-200 rounded-xl bg-white overflow-hidden">
+
+                {/* Collapsed / expanded header */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistoryOpen(!historyOpen)
+                    if (historyOpen) setHistoryLimit(10)
+                  }}
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div>
+                    <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                      {t('crates_return_history', lang)}
+                    </p>
+
+                    <p className="text-xs text-gray-400 mt-1">
+                      {selectedReturnHistory.length} {t('crates_return_actions', lang)}
+                    </p>
+                  </div>
+
+                  <svg
+                    className={`w-5 h-5 text-gray-400 transition-transform ${
+                      historyOpen ? 'rotate-180' : ''
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+
+                {/* History content */}
+                {historyOpen && (
+                  <div className="border-t border-gray-100 px-4 pb-4">
+
+                    {(() => {
+                      const visibleHistory = selectedReturnHistory.slice(0, historyLimit)
+
+                      const grouped: Record<string, ReturnHistory[]> = {}
+
+                      visibleHistory.forEach(item => {
+                        const date = item.return_date.split('T')[0]
+
+                        if (!grouped[date]) {
+                          grouped[date] = []
+                        }
+
+                        grouped[date].push(item)
+                      })
+
+                      return (
+                        <>
+                          {Object.entries(grouped)
+                            .sort(([a], [b]) => b.localeCompare(a))
+                            .map(([date, items]) => (
+                              <div key={date} className="pt-4">
+
+                                {/* Action date */}
+                                <p className="text-xs font-bold text-gray-500 mb-2">
+                                  {formatDateSafe(date)}
+                                </p>
+
+                                <div className="space-y-2">
+                                  {items.map(item => (
+                                    <div
+                                      key={item.id}
+                                      className="bg-gray-50 rounded-lg px-3 py-2.5"
+                                    >
+                                      {item.return_type === 'client_return' ? (
+                                        <>
+                                          <p className="text-sm font-semibold text-gray-800 capitalize">
+                                            {item.client_name}
+                                          </p>
+
+                                          <p className="text-xs text-gray-500 mt-0.5">
+                                            {t('crates_returned_action', lang)} {item.quantity} {t('crates_unit', lang)}
+                                          </p>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <p className="text-sm font-semibold text-gray-800 capitalize">
+                                            {item.borrowed_from}
+                                          </p>
+
+                                          <p className="text-xs text-gray-500 mt-0.5">
+                                            {t('crates_you_returned_action', lang)} {item.quantity} {t('crates_unit', lang)}
+                                          </p>
+                                        </>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+
+                          {/* Show more */}
+                          {historyLimit < selectedReturnHistory.length && (
+                            <button
+                              type="button"
+                              onClick={() => setHistoryLimit(prev => prev + 10)}
+                              className="w-full mt-4 py-2.5 text-sm font-semibold text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                            >
+                              {t('crates_show_more', lang)}
+                            </button>
+                          )}
+
+                          {/* End of history */}
+                          {historyLimit >= selectedReturnHistory.length &&
+                            selectedReturnHistory.length > 10 && (
+                              <p className="text-center text-xs text-gray-400 mt-4">
+                                {t('crates_all_history_shown', lang)}
+                              </p>
+                            )}
+                        </>
+                      )
+                    })()}
+
+                  </div>
+                )}
               </div>
             )}
 

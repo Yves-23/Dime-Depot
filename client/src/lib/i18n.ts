@@ -157,6 +157,7 @@ const translations = {
     mark_fully_paid: 'Mark as fully paid?',
     yes_fully_paid: 'Yes, fully paid',
     amount_paid_now: 'Amount paid now (RWF)',
+    total_filtered_remaining: 'Total remaining for',
 
     // Profit
     profit_title: 'Profit Report',
@@ -257,6 +258,12 @@ const translations = {
     crates_yes_returned: 'Yes, returned all',
     crates_enter_name: 'Enter name',
     crates_supplier_neighbour: 'Supplier / Neighbour',
+    crates_return_history: 'Return history',
+    crates_return_actions: 'return actions',
+    crates_returned_action: 'Returned',
+    crates_you_returned_action: 'You returned',
+    crates_show_more: 'Show more',
+    crates_all_history_shown: 'All return history shown',
 
     // Auth — Reset PIN
     forgot_pin_title: 'Forgot your PIN?',
@@ -475,6 +482,7 @@ const translations = {
     mark_fully_paid: 'Emeza ko wishyuwe yose',
     yes_fully_paid: 'Yego, yishyuwe yose',
     amount_paid_now: 'Amafaranga yishyuwe ubu (RWF)',
+    total_filtered_remaining: 'Amafaranga asigaye kuri',
 
     // Profit
     profit_title: "Raporo y'inyungu",
@@ -575,6 +583,12 @@ const translations = {
     crates_yes_returned: 'Yego, ndazisubije',
     crates_enter_name: 'Andika izina',
     crates_supplier_neighbour: 'Uruganda / Umuturanyi',
+    crates_return_history: 'Ama kaziye wasubije',
+    crates_return_actions: 'gusubiza ama kaziye',
+    crates_returned_action: 'Yatiruye',
+    crates_you_returned_action: 'Wasubije',
+    crates_show_more: 'Reba ibindi',
+    crates_all_history_shown: 'Reba ama kaziye yose wasubije',
 
     // Auth — Reset PIN
     forgot_pin_title: "Wibagiwe umubare w'ibanga?",

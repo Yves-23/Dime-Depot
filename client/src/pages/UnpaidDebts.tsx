@@ -114,6 +114,10 @@ export default function UnpaidDebts() {
     sum + (Number(d.amount) - Number(d.amount_paid || 0)), 0
   )
 
+  const filteredTotalRemaining = filtered.reduce((sum, d) =>
+    sum + (Number(d.amount) - Number(d.amount_paid || 0)), 0
+  )
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -255,6 +259,26 @@ export default function UnpaidDebts() {
           </button>
         )}
       </div>
+
+      {/* filtered total remaining */}
+      {search.trim() && filtered.length > 0 && (
+        <div className="mb-6 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500">
+                {t('total_filtered_remaining', lang)}
+              </p>
+              <p className="font-semibold text-gray-900 capitalize">
+                {search}
+              </p>
+            </div>
+
+            <p className="text-red-600 font-bold text-lg">
+              {formatRWF(filteredTotalRemaining)}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       {debts.length === 0 ? (

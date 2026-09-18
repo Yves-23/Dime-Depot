@@ -200,6 +200,27 @@ export async function createTables() {
     )
   `)
 
+    // Crate return history — records every partial and full crate return
+  await query(`
+    CREATE TABLE IF NOT EXISTS crate_return_history (
+      id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+      business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+      crate_type_id UUID REFERENCES crate_types(id) ON DELETE CASCADE,
+      lending_id UUID REFERENCES crate_lendings(id) ON DELETE CASCADE,
+      borrowing_id UUID REFERENCES crate_borrowings(id) ON DELETE CASCADE,
+      return_type TEXT NOT NULL CHECK (return_type IN ('client_return', 'borrowed_return')),
+      quantity INTEGER NOT NULL CHECK (quantity > 0),
+      return_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+
+      CHECK (
+        (lending_id IS NOT NULL AND borrowing_id IS NULL)
+        OR
+        (lending_id IS NULL AND borrowing_id IS NOT NULL)
+      )
+    )
+  `)
+
   // Add new columns to existing crate tables if they don't exist
   await query(`ALTER TABLE crate_lendings ADD COLUMN IF NOT EXISTS phone TEXT`)
   await query(`ALTER TABLE crate_borrowings ADD COLUMN IF NOT EXISTS crates_returned INTEGER DEFAULT 0`)

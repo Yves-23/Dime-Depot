@@ -1,5 +1,5 @@
 import { Router, Response } from 'express'
-import { query } from '../db'
+import { query, getClient } from '../db'
 import { authenticate, AuthRequest } from '../middleware/auth'
 
 const router = Router()
@@ -115,41 +115,92 @@ router.post('/lendings', authenticate, async (req: AuthRequest, res: Response) =
 
 // Partial or full return from client
 router.put('/lendings/:id/return', authenticate, async (req: AuthRequest, res: Response) => {
+  const client = await getClient()
+
   try {
+    await client.query('BEGIN')
+
     const { id } = req.params
     const { crates_returned, full } = req.body
 
-    const current = await query(
-      'SELECT * FROM crate_lendings WHERE id = $1 AND business_id = $2',
+    const current = await client.query(
+      `SELECT *
+       FROM crate_lendings
+       WHERE id = $1 AND business_id = $2
+       FOR UPDATE`,
       [id, req.business!.id]
     )
-    if (current.rows.length === 0) return res.status(404).json({ error: 'Lending not found' })
 
-    const lending = current.rows[0]
-    const totalLent = parseInt(lending.crates_lent)
-
-    let newReturned: number
-    let isFullyReturned: boolean
-
-    if (full) {
-      newReturned = totalLent
-      isFullyReturned = true
-    } else {
-      newReturned = Math.min(parseInt(lending.crates_returned) + parseInt(crates_returned), totalLent)
-      isFullyReturned = newReturned >= totalLent
+    if (current.rows.length === 0) {
+      await client.query('ROLLBACK')
+      return res.status(404).json({ error: 'Lending not found' })
     }
 
-    const result = await query(
+    const lending = current.rows[0]
+
+    const totalLent = parseInt(lending.crates_lent)
+    const alreadyReturned = parseInt(lending.crates_returned || 0)
+    const remaining = totalLent - alreadyReturned
+
+    if (remaining <= 0) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ error: 'All crates have already been returned' })
+    }
+
+    let returnedNow: number
+
+    if (full) {
+      returnedNow = remaining
+    } else {
+      returnedNow = parseInt(crates_returned)
+
+      if (!returnedNow || returnedNow <= 0) {
+        await client.query('ROLLBACK')
+        return res.status(400).json({ error: 'Invalid number of returned crates' })
+      }
+
+      if (returnedNow > remaining) {
+        await client.query('ROLLBACK')
+        return res.status(400).json({
+          error: `Client only has ${remaining} crates remaining`
+        })
+      }
+    }
+
+    const newReturned = alreadyReturned + returnedNow
+    const isFullyReturned = newReturned >= totalLent
+
+    const result = await client.query(
       `UPDATE crate_lendings
-       SET crates_returned = $1, is_fully_returned = $2
+       SET crates_returned = $1,
+           is_fully_returned = $2
        WHERE id = $3 AND business_id = $4
        RETURNING *`,
       [newReturned, isFullyReturned, id, req.business!.id]
     )
+
+    await client.query(
+      `INSERT INTO crate_return_history
+        (business_id, crate_type_id, lending_id, return_type, quantity)
+       VALUES ($1, $2, $3, 'client_return', $4)`,
+      [
+        req.business!.id,
+        lending.crate_type_id,
+        lending.id,
+        returnedNow
+      ]
+    )
+
+    await client.query('COMMIT')
+
     return res.json({ lending: result.rows[0] })
+
   } catch (error) {
+    await client.query('ROLLBACK')
     console.error('Return crates error:', error)
     return res.status(500).json({ error: 'Something went wrong' })
+  } finally {
+    client.release()
   }
 })
 
@@ -206,41 +257,92 @@ router.post('/borrowings', authenticate, async (req: AuthRequest, res: Response)
 
 // Partial or full return of borrowed crates
 router.put('/borrowings/:id/return', authenticate, async (req: AuthRequest, res: Response) => {
+  const client = await getClient()
+
   try {
+    await client.query('BEGIN')
+
     const { id } = req.params
     const { crates_returned, full } = req.body
 
-    const current = await query(
-      'SELECT * FROM crate_borrowings WHERE id = $1 AND business_id = $2',
+    const current = await client.query(
+      `SELECT *
+       FROM crate_borrowings
+       WHERE id = $1 AND business_id = $2
+       FOR UPDATE`,
       [id, req.business!.id]
     )
-    if (current.rows.length === 0) return res.status(404).json({ error: 'Borrowing not found' })
 
-    const borrowing = current.rows[0]
-    const totalBorrowed = parseInt(borrowing.crates_borrowed)
-
-    let newReturned: number
-    let isFullyReturned: boolean
-
-    if (full) {
-      newReturned = totalBorrowed
-      isFullyReturned = true
-    } else {
-      newReturned = Math.min(parseInt(borrowing.crates_returned || 0) + parseInt(crates_returned), totalBorrowed)
-      isFullyReturned = newReturned >= totalBorrowed
+    if (current.rows.length === 0) {
+      await client.query('ROLLBACK')
+      return res.status(404).json({ error: 'Borrowing not found' })
     }
 
-    const result = await query(
+    const borrowing = current.rows[0]
+
+    const totalBorrowed = parseInt(borrowing.crates_borrowed)
+    const alreadyReturned = parseInt(borrowing.crates_returned || 0)
+    const remaining = totalBorrowed - alreadyReturned
+
+    if (remaining <= 0) {
+      await client.query('ROLLBACK')
+      return res.status(400).json({ error: 'All crates have already been returned' })
+    }
+
+    let returnedNow: number
+
+    if (full) {
+      returnedNow = remaining
+    } else {
+      returnedNow = parseInt(crates_returned)
+
+      if (!returnedNow || returnedNow <= 0) {
+        await client.query('ROLLBACK')
+        return res.status(400).json({ error: 'Invalid number of returned crates' })
+      }
+
+      if (returnedNow > remaining) {
+        await client.query('ROLLBACK')
+        return res.status(400).json({
+          error: `Only ${remaining} crates remain to be returned`
+        })
+      }
+    }
+
+    const newReturned = alreadyReturned + returnedNow
+    const isFullyReturned = newReturned >= totalBorrowed
+
+    const result = await client.query(
       `UPDATE crate_borrowings
-       SET crates_returned = $1, is_returned = $2
+       SET crates_returned = $1,
+           is_returned = $2
        WHERE id = $3 AND business_id = $4
        RETURNING *`,
       [newReturned, isFullyReturned, id, req.business!.id]
     )
+
+    await client.query(
+      `INSERT INTO crate_return_history
+        (business_id, crate_type_id, borrowing_id, return_type, quantity)
+       VALUES ($1, $2, $3, 'borrowed_return', $4)`,
+      [
+        req.business!.id,
+        borrowing.crate_type_id,
+        borrowing.id,
+        returnedNow
+      ]
+    )
+
+    await client.query('COMMIT')
+
     return res.json({ borrowing: result.rows[0] })
+
   } catch (error) {
+    await client.query('ROLLBACK')
     console.error('Return borrowing error:', error)
     return res.status(500).json({ error: 'Something went wrong' })
+  } finally {
+    client.release()
   }
 })
 
@@ -251,6 +353,34 @@ router.delete('/borrowings/:id', authenticate, async (req: AuthRequest, res: Res
     return res.json({ message: 'Borrowing deleted' })
   } catch (error) {
     console.error('Delete borrowing error:', error)
+    return res.status(500).json({ error: 'Something went wrong' })
+  }
+})
+
+// ─── CRATE RETURN HISTORY ────────────────────────────────────────────────────
+
+router.get('/return-history', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await query(
+      `SELECT
+        crh.*,
+        ct.supplier_id,
+        s.name AS supplier_name,
+        cl.client_name,
+        cb.borrowed_from
+       FROM crate_return_history crh
+       JOIN crate_types ct ON crh.crate_type_id = ct.id
+       JOIN suppliers s ON ct.supplier_id = s.id
+       LEFT JOIN crate_lendings cl ON crh.lending_id = cl.id
+       LEFT JOIN crate_borrowings cb ON crh.borrowing_id = cb.id
+       WHERE crh.business_id = $1
+       ORDER BY crh.created_at DESC`,
+      [req.business!.id]
+    )
+
+    return res.json({ return_history: result.rows })
+  } catch (error) {
+    console.error('Get crate return history error:', error)
     return res.status(500).json({ error: 'Something went wrong' })
   }
 })
