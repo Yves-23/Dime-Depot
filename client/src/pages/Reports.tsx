@@ -193,7 +193,7 @@ export default function Reports() {
       await financesAPI.save(reportDate, {
         momo: parseFloat(parseNumberInput(momo)) || 0,
         cash: parseFloat(parseNumberInput(cash)) || 0,
-        debts: debts.map(d => ({ id: d.id, client_name: d.client_name, amount: parseFloat(parseNumberInput(d.amount)) || 0, is_paid: d.is_paid })),
+        debts: debts.map(d => ({ id: d.id, client_name: d.client_name, amount: parseFloat(parseNumberInput(d.amount)) || 0 })),
         expenses: expenses.map(e => ({ description: e.description, amount: parseFloat(parseNumberInput(e.amount)) || 0 })),
       })
       setSaveStatus('saved')

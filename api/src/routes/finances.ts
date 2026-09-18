@@ -78,13 +78,13 @@ router.post('/:date', authenticate, async (req: AuthRequest, res: Response) => {
       const newAmount = parseFloat(debt.amount)
 
       if (debt.id) {
-        // Existing debt — UPDATE name and amount only, NEVER touch amount_paid or is_paid
-        // is_paid is recalculated based on amount_paid vs new amount
+        // Existing debt — update only editable debt details.
+        // Payment state (amount_paid / is_paid) belongs to the dedicated payment endpoints
+        // and must NEVER be reset when MoMo, cash, expenses, or debt details are corrected.
         await query(
           `UPDATE daily_debts
-           SET client_name = $1, 
-               amount = $2,
-               is_paid = (amount_paid >= $2)
+           SET client_name = $1,
+               amount = $2
            WHERE id = $3 AND business_id = $4`,
           [debt.client_name.trim(), newAmount, debt.id, req.business!.id]
         )
