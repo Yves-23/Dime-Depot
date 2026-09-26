@@ -446,7 +446,7 @@ export default function Profit() {
                           {supplier.products_count}{' '}
                           {supplier.products_count === 1 ? 'product' : 'products'} sold
                         </p>
-                      </div>
+                      </div> 
 
                       <div className="text-right">
                         <p className="text-xs text-gray-500 mb-0.5">
