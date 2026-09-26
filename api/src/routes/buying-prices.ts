@@ -75,12 +75,18 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
 
     // Get stock entries from 30 days before start to end
     const entries = await query(
-      `SELECT se.*, p.pieces_per_casse, p.id as prod_id
-       FROM stock_entries se
-       JOIN products p ON se.product_id = p.id
-       WHERE se.business_id = $1 
-       AND se.entry_date BETWEEN $2 AND $3
-       ORDER BY se.entry_date ASC`,
+      `SELECT 
+        se.*,
+        p.pieces_per_casse,
+        p.name AS product_name,
+        p.supplier_id,
+        s.name AS supplier_name
+      FROM stock_entries se
+      JOIN products p ON se.product_id = p.id
+      LEFT JOIN suppliers s ON p.supplier_id = s.id
+      WHERE se.business_id = $1 
+      AND se.entry_date BETWEEN $2 AND $3
+      ORDER BY se.entry_date ASC`,
       [req.business!.id, dayBeforeStart, end_date]
     )
 
@@ -164,6 +170,18 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
     let totalDeficit = 0
     const dailySummaries: any[] = []
 
+    const productPerformance: Record<string, {
+      product_id: string
+      product_name: string
+      supplier_id: string | null
+      supplier_name: string
+      pieces_per_casse: number
+      quantity_sold_pieces: number
+      revenue: number
+      buying_cost: number
+      gross_profit: number
+    }> = {}
+
     for (let i = 0; i < allDates.length; i++) {
       const date = allDates[i]
 
@@ -224,8 +242,37 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
         const sellingPrice = getPriceForDate(sellingPrices.rows, todayEntry.product_id, date)
         const buyingPrice = getPriceForDate(buyingPrices.rows, todayEntry.product_id, date)
 
-        dayRevenue += Math.ceil(((soldPieces / ppc) * sellingPrice) / 50) * 50
-        dayBuyingCost += Math.ceil(((soldPieces / ppc) * buyingPrice) / 50) * 50
+        const productRevenue =
+          Math.ceil(((soldPieces / ppc) * sellingPrice) / 50) * 50
+
+        const productBuyingCost =
+          Math.ceil(((soldPieces / ppc) * buyingPrice) / 50) * 50
+
+        const productGrossProfit = productRevenue - productBuyingCost
+
+        // Keep existing daily totals
+        dayRevenue += productRevenue
+        dayBuyingCost += productBuyingCost
+
+        // Accumulate product performance across the selected period
+        if (!productPerformance[todayEntry.product_id]) {
+          productPerformance[todayEntry.product_id] = {
+            product_id: todayEntry.product_id,
+            product_name: todayEntry.product_name,
+            supplier_id: todayEntry.supplier_id || null,
+            supplier_name: todayEntry.supplier_name || 'Unknown',
+            pieces_per_casse: ppc,
+            quantity_sold_pieces: 0,
+            revenue: 0,
+            buying_cost: 0,
+            gross_profit: 0,
+          }
+        }
+
+        productPerformance[todayEntry.product_id].quantity_sold_pieces += soldPieces
+        productPerformance[todayEntry.product_id].revenue += productRevenue
+        productPerformance[todayEntry.product_id].buying_cost += productBuyingCost
+        productPerformance[todayEntry.product_id].gross_profit += productGrossProfit
       })
 
       // Total collected = MoMo + Cash + Debts + Expenses
@@ -268,6 +315,14 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
     const totalGrossProfit = totalRevenue - totalBuyingCost
     const totalRealProfit = totalGrossProfit + totalSurplus - totalDeficit
 
+    const products = Object.values(productPerformance)
+      .map(product => ({
+        ...product,
+        equivalent_casses:
+          product.quantity_sold_pieces / product.pieces_per_casse,
+      }))
+      .sort((a, b) => b.revenue - a.revenue)
+
     return res.json({
       summary: {
         start_date,
@@ -279,6 +334,7 @@ router.get('/summary', authenticate, async (req: AuthRequest, res: Response) => 
         total_gross_profit: totalGrossProfit,
         total_profit: totalRealProfit,
         daily: dailySummaries,
+        products,
       }
     })
   } catch (error) {

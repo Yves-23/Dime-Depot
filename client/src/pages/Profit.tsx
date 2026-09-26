@@ -19,6 +19,19 @@ interface DailySummary {
   profit: number
 }
 
+interface ProductPerformance {
+  product_id: string
+  product_name: string
+  supplier_id: string | null
+  supplier_name: string
+  pieces_per_casse: number
+  quantity_sold_pieces: number
+  equivalent_casses: number
+  revenue: number
+  buying_cost: number
+  gross_profit: number
+}
+
 interface Summary {
   start_date: string
   end_date: string
@@ -29,6 +42,16 @@ interface Summary {
   total_gross_profit: number
   total_profit: number
   daily: DailySummary[]
+  products: ProductPerformance[]
+}
+
+interface SupplierPerformance {
+  supplier_id: string | null
+  supplier_name: string
+  products_count: number
+  revenue: number
+  buying_cost: number
+  gross_profit: number
 }
 
 export default function Profit() {
@@ -118,12 +141,75 @@ export default function Profit() {
       <p className="text-gray-400 text-sm mt-1">{t('no_data_sub', lang)}</p>
     </div>
   )
+  
+  const formatSoldQuantity = (
+  pieces: number,
+  piecesPerCase: number
+) => {
+  if (!piecesPerCase) return `${pieces} pcs`
+
+  const fullCases = Math.floor(pieces / piecesPerCase)
+  let remainingPieces = pieces % piecesPerCase
+  const halfCase = piecesPerCase / 2
+
+  let hasHalf = false
+
+  if (remainingPieces >= halfCase) {
+    hasHalf = true
+    remainingPieces -= halfCase
+  }
+
+  const parts: string[] = []
+
+    if (fullCases > 0) {
+      parts.push(`${fullCases} ${fullCases === 1 ? 'case' : 'cases'}`)
+    }
+
+    if (hasHalf) {
+      parts.push('1/2')
+    }
+
+    if (remainingPieces > 0) {
+      parts.push(`${remainingPieces} pcs`)
+    }
+
+    return parts.join(' + ')
+  }
+
+  const supplierPerformance: SupplierPerformance[] = summary
+  ? Object.values(
+      summary.products.reduce<Record<string, SupplierPerformance>>(
+        (suppliers, product) => {
+          const key = product.supplier_id || product.supplier_name
+
+          if (!suppliers[key]) {
+            suppliers[key] = {
+              supplier_id: product.supplier_id,
+              supplier_name: product.supplier_name,
+              products_count: 0,
+              revenue: 0,
+              buying_cost: 0,
+              gross_profit: 0,
+            }
+          }
+
+          suppliers[key].products_count += 1
+          suppliers[key].revenue += product.revenue
+          suppliers[key].buying_cost += product.buying_cost
+          suppliers[key].gross_profit += product.gross_profit
+
+          return suppliers
+        },
+        {}
+      )
+    ).sort((a, b) => b.gross_profit - a.gross_profit)
+  : []
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="page-title mb-1">{t('profit_title', lang)}</h1>
-        <p className="text-gray-500 text-sm">{t('profit_formula', lang)}</p>
+        {/* <p className="text-gray-500 text-sm">{t('profit_formula', lang)}</p> */}
       </div>
 
       {/* Period selector */}
@@ -192,7 +278,7 @@ export default function Profit() {
 
           {/* Daily breakdown */}
           {summary.daily.length > 0 ? (
-            <div className="card">
+            <div className="card mb-6">
               <div className="section-title">{t('daily_breakdown', lang)}</div>
 
               <div className="grid grid-cols-3 gap-2 px-1 mb-2">
@@ -247,6 +333,152 @@ export default function Profit() {
               </div>
             </div>
           ) : noDataBlock}
+
+          {/* Product Performance */}
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Product Performance
+            </h2>
+
+            {summary.products.length === 0 ? (
+              <p className="text-gray-500 text-sm">
+                No product sales found for this period.
+              </p>
+            ) : (
+              <>
+                {/* Desktop / Tablet */}
+                <div className="hidden sm:block">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-gray-600">
+                        <th className="py-3 pr-3">Product</th>
+                        <th className="py-3 px-3">Supplier</th>
+                        <th className="py-3 px-3 text-right">Sold</th>
+                        <th className="py-3 pl-3 text-right">Gross Profit</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {summary.products.map((product) => (
+                        <tr
+                          key={product.product_id}
+                          className="border-b last:border-b-0"
+                        >
+                          <td className="py-3 pr-3 font-medium text-gray-900">
+                            {product.product_name}
+                          </td>
+
+                          <td className="py-3 px-3 text-gray-600">
+                            {product.supplier_name}
+                          </td>
+
+                          <td className="py-3 px-3 text-right whitespace-nowrap">
+                            {formatSoldQuantity(
+                              product.quantity_sold_pieces,
+                              product.pieces_per_casse
+                            )}
+                          </td>
+
+                          <td className="py-3 pl-3 text-right font-medium whitespace-nowrap">
+                            {formatRWF(product.gross_profit)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile */}
+                <div className="sm:hidden divide-y">
+                  {summary.products.map((product) => (
+                    <div key={product.product_id} className="py-4 first:pt-0">
+                      <div className="flex justify-between gap-3 mb-2">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {product.product_name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {product.supplier_name}
+                          </p>
+                        </div>
+
+                        <p className="font-semibold text-gray-900 whitespace-nowrap">
+                          {formatRWF(product.gross_profit)}
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Sold</span>
+                        <span className="font-medium text-gray-700">
+                          {formatSoldQuantity(
+                            product.quantity_sold_pieces,
+                            product.pieces_per_casse
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Supplier Performance */}
+          {supplierPerformance.length > 0 && (
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Supplier Performance
+              </h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {supplierPerformance.map((supplier) => (
+                  <div
+                    key={supplier.supplier_id || supplier.supplier_name}
+                    className="border border-gray-200 rounded-lg p-4"
+                  >
+                    <div className="flex justify-between items-start gap-3 mb-3">
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {supplier.supplier_name}
+                        </p>
+
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {supplier.products_count}{' '}
+                          {supplier.products_count === 1 ? 'product' : 'products'} sold
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500 mb-0.5">
+                          Gross Profit
+                        </p>
+                        <p className="font-bold text-green-600">
+                          {formatRWF(supplier.gross_profit)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-gray-100 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Revenue</span>
+                        <span className="font-medium text-gray-700">
+                          {formatRWF(supplier.revenue)}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Buying Cost</span>
+                        <span className="font-medium text-gray-700">
+                          {formatRWF(supplier.buying_cost)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         </>
       ) : noDataBlock}
     </div>
