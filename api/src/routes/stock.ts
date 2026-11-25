@@ -194,7 +194,8 @@ router.get('/entries/last-before/:date', authenticate, async (req: AuthRequest, 
   }
 })
 
-// Get current stock value using the latest recorded stock entry for each product
+
+// Get current stock value and expected profit using the latest recorded stock entry for each product
 router.get('/current-value', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const result = await query(
@@ -203,28 +204,68 @@ router.get('/current-value', authenticate, async (req: AuthRequest, res: Respons
          p.name AS product_name,
          p.pieces_per_casse,
          s.name AS supplier_name,
+
          latest_stock.entry_date,
          latest_stock.casses,
          latest_stock.halves,
          latest_stock.pieces,
-         (
-           latest_stock.casses * p.pieces_per_casse +
-           latest_stock.halves * (p.pieces_per_casse / 2.0) +
-           latest_stock.pieces
-         ) AS stock_pieces,
+
+         stock_calc.stock_pieces,
+
          bp.price_per_casse,
+         sp.selling_price,
+
+         -- Stock value rounded up to the next 50 RWF
          CASE
            WHEN bp.price_per_casse IS NOT NULL
                 AND p.pieces_per_casse > 0
-           THEN (
+           THEN CEIL(
              (
-               latest_stock.casses * p.pieces_per_casse +
-               latest_stock.halves * (p.pieces_per_casse / 2.0) +
-               latest_stock.pieces
-             ) / p.pieces_per_casse
-           ) * bp.price_per_casse
+               (stock_calc.stock_pieces / p.pieces_per_casse::numeric)
+               * bp.price_per_casse
+             ) / 50.0
+           ) * 50
            ELSE NULL
-         END AS stock_value
+         END AS stock_value,
+
+         -- Expected revenue rounded up to the next 50 RWF
+         CASE
+           WHEN sp.selling_price IS NOT NULL
+                AND p.pieces_per_casse > 0
+           THEN CEIL(
+             (
+               (stock_calc.stock_pieces / p.pieces_per_casse::numeric)
+               * sp.selling_price
+             ) / 50.0
+           ) * 50
+           ELSE NULL
+         END AS expected_revenue,
+
+         -- Expected gross profit = expected revenue - stock value
+         CASE
+           WHEN bp.price_per_casse IS NOT NULL
+                AND sp.selling_price IS NOT NULL
+                AND p.pieces_per_casse > 0
+           THEN
+             (
+               CEIL(
+                 (
+                   (stock_calc.stock_pieces / p.pieces_per_casse::numeric)
+                   * sp.selling_price
+                 ) / 50.0
+               ) * 50
+             )
+             -
+             (
+               CEIL(
+                 (
+                   (stock_calc.stock_pieces / p.pieces_per_casse::numeric)
+                   * bp.price_per_casse
+                 ) / 50.0
+               ) * 50
+             )
+           ELSE NULL
+         END AS expected_profit
 
        FROM products p
 
@@ -244,6 +285,17 @@ router.get('/current-value', authenticate, async (req: AuthRequest, res: Respons
          LIMIT 1
        ) latest_stock ON true
 
+       -- Convert remaining stock into individual pieces
+       CROSS JOIN LATERAL (
+         SELECT
+           (
+             latest_stock.casses * p.pieces_per_casse +
+             latest_stock.halves * (p.pieces_per_casse / 2.0) +
+             latest_stock.pieces
+           ) AS stock_pieces
+       ) stock_calc
+
+       -- Latest applicable buying price
        LEFT JOIN LATERAL (
          SELECT bp.price_per_casse
          FROM buying_prices bp
@@ -253,6 +305,17 @@ router.get('/current-value', authenticate, async (req: AuthRequest, res: Respons
          ORDER BY bp.effective_date DESC, bp.created_at DESC
          LIMIT 1
        ) bp ON true
+
+       -- Latest applicable selling price
+       LEFT JOIN LATERAL (
+         SELECT prices.price_per_casse AS selling_price
+         FROM prices
+         WHERE prices.product_id = p.id
+           AND prices.business_id = p.business_id
+           AND prices.effective_date <= CURRENT_DATE
+         ORDER BY prices.effective_date DESC, prices.created_at DESC
+         LIMIT 1
+       ) sp ON true
 
        WHERE p.business_id = $1
        ORDER BY s.name, p.name`,
@@ -265,5 +328,6 @@ router.get('/current-value', authenticate, async (req: AuthRequest, res: Respons
     return res.status(500).json({ error: 'Something went wrong' })
   }
 })
+
 
 export default router
