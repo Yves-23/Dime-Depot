@@ -269,7 +269,7 @@ export default function Dashboard() {
             </svg>
           </div>
           <p className="text-sm font-semibold text-gray-900">
-            {lang === 'rw' ? 'Agaciro ka Stock' : 'Stock Value'}
+            {lang === 'rw' ? 'Agaciro ka Stock' : 'Stock Value'} 
           </p>
           <p className="text-xs text-gray-400 mt-1">
             {lang === 'rw' ? 'Agaciro k’ibicuruzwa bisigaye' : 'Value of remaining stock'}
