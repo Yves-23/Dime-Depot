@@ -219,7 +219,7 @@ export default function Dashboard() {
       </div>
 
       {/* Row 2: Crates — centered */}
-      <div className="flex justify-center mb-4">
+      {/* <div className="flex justify-center mb-4">
         <Link to="/crates"
           className="card hover:shadow-md transition-shadow cursor-pointer text-center w-1/2"
           style={{ background: 'linear-gradient(135deg, #1B5E20 0%, #2E7D32 50%, #F9A825 100%)' }}>
@@ -232,6 +232,47 @@ export default function Dashboard() {
           </div>
           <p className="text-sm font-semibold text-white">{lang === 'rw' ? 'Kaziye' : 'Crates'}</p>
           <p className="text-xs text-white text-opacity-80 mt-1">{lang === 'rw' ? 'Kurikirana Kaziye zawe' : 'Track your crates'}</p>
+        </Link>
+      </div> */}
+
+      {/* Row 2: Crates + Stock Value */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+
+        <Link
+          to="/crates"
+          className="card hover:shadow-md transition-shadow cursor-pointer text-center"
+          style={{ background: 'linear-gradient(135deg, #1B5E20 0%, #2E7D32 50%, #F9A825 100%)' }}
+        >
+          <div className="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center mx-auto mb-3">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <rect x="2" y="7" width="20" height="14" rx="2" strokeWidth={2}/>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 11h20M2 15h20M8 7V21M12 7V21M16 7V21"/>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3h8l2 4H6L8 3z"/>
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-white">{lang === 'rw' ? 'Kaziye' : 'Crates'}</p>
+          <p className="text-xs text-white text-opacity-80 mt-1">
+            {lang === 'rw' ? 'Kurikirana Kaziye zawe' : 'Track your crates'}
+          </p>
+        </Link>
+
+        <Link
+          to="/stock-value"
+          className="card hover:shadow-md transition-shadow cursor-pointer text-center"
+        >
+          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+            <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-gray-900">
+            {lang === 'rw' ? 'Agaciro k’Imigabane' : 'Stock Value'}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            {lang === 'rw' ? 'Agaciro k’ibicuruzwa bisigaye' : 'Value of remaining stock'}
+          </p>
         </Link>
       </div>
 

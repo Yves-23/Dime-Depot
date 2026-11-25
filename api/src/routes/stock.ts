@@ -1,3 +1,5 @@
+// api/src/routes/stock.ts
+
 import { Router, Response } from 'express'
 import { query } from '../db'
 import { authenticate, AuthRequest } from '../middleware/auth'
@@ -188,6 +190,78 @@ router.get('/entries/last-before/:date', authenticate, async (req: AuthRequest, 
     return res.json({ entries: result.rows, last_date: lastDate })
   } catch (error) {
     console.error('Get last stock entries error:', error)
+    return res.status(500).json({ error: 'Something went wrong' })
+  }
+})
+
+// Get current stock value using the latest recorded stock entry for each product
+router.get('/current-value', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await query(
+      `SELECT
+         p.id AS product_id,
+         p.name AS product_name,
+         p.pieces_per_casse,
+         s.name AS supplier_name,
+         latest_stock.entry_date,
+         latest_stock.casses,
+         latest_stock.halves,
+         latest_stock.pieces,
+         (
+           latest_stock.casses * p.pieces_per_casse +
+           latest_stock.halves * (p.pieces_per_casse / 2.0) +
+           latest_stock.pieces
+         ) AS stock_pieces,
+         bp.price_per_casse,
+         CASE
+           WHEN bp.price_per_casse IS NOT NULL
+                AND p.pieces_per_casse > 0
+           THEN (
+             (
+               latest_stock.casses * p.pieces_per_casse +
+               latest_stock.halves * (p.pieces_per_casse / 2.0) +
+               latest_stock.pieces
+             ) / p.pieces_per_casse
+           ) * bp.price_per_casse
+           ELSE NULL
+         END AS stock_value
+
+       FROM products p
+
+       LEFT JOIN suppliers s
+         ON s.id = p.supplier_id
+
+       JOIN LATERAL (
+         SELECT
+           se.entry_date,
+           se.casses,
+           se.halves,
+           se.pieces
+         FROM stock_entries se
+         WHERE se.product_id = p.id
+           AND se.business_id = p.business_id
+         ORDER BY se.entry_date DESC, se.created_at DESC
+         LIMIT 1
+       ) latest_stock ON true
+
+       LEFT JOIN LATERAL (
+         SELECT bp.price_per_casse
+         FROM buying_prices bp
+         WHERE bp.product_id = p.id
+           AND bp.business_id = p.business_id
+           AND bp.effective_date <= CURRENT_DATE
+         ORDER BY bp.effective_date DESC, bp.created_at DESC
+         LIMIT 1
+       ) bp ON true
+
+       WHERE p.business_id = $1
+       ORDER BY s.name, p.name`,
+      [req.business!.id]
+    )
+
+    return res.json({ products: result.rows })
+  } catch (error) {
+    console.error('Get current stock value error:', error)
     return res.status(500).json({ error: 'Something went wrong' })
   }
 })

@@ -1,3 +1,5 @@
+// client/src/App.tsx
+
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
@@ -20,6 +22,7 @@ import AdminSettings from './pages/admin/AdminSettings'
 import UnpaidDebts from './pages/UnpaidDebts'
 import Settings from './pages/Settings'
 import Crates from './pages/Crates'
+import StockValue from './pages/StockValue'
 
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -113,6 +116,7 @@ function AppRoutes() {
       <Route path="/unpaid-debts" element={<ProtectedRoute><UnpaidDebts /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/crates" element={<ProtectedRoute><Crates /></ProtectedRoute>} />
+      <Route path="/stock-value" element={<ProtectedRoute><StockValue /></ProtectedRoute>} />
       {/* Default redirects */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

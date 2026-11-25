@@ -1,3 +1,5 @@
+// client/src/lib/types.ts
+
 export interface Business {
   id: string
   owner_name: string

@@ -1,3 +1,5 @@
+// client/src/lib/api.ts
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 // Get token from localStorage
@@ -152,6 +154,7 @@ export const stockAPI = {
   bulkSaveReceived: (received: any[], date: string) =>
     request('POST', '/api/stock/received/bulk', { received, date }),
   getLastEntries: (date: string) => request('GET', `/api/stock/entries/last-before/${date}`),
+  getCurrentValue: () => request('GET', '/api/stock/current-value'),
 }
 
 // Finances API

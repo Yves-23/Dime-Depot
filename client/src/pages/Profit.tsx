@@ -205,6 +205,12 @@ export default function Profit() {
     ).sort((a, b) => b.gross_profit - a.gross_profit)
   : []
 
+  const productPerformance = summary
+  ? [...summary.products].sort(
+      (a, b) => b.gross_profit - a.gross_profit
+    )
+  : []
+
   return (
     <div>
       <div className="mb-6">
@@ -359,7 +365,7 @@ export default function Profit() {
                     </thead>
 
                     <tbody>
-                      {summary.products.map((product) => (
+                      {productPerformance.map((product) => (
                         <tr
                           key={product.product_id}
                           className="border-b last:border-b-0"
@@ -390,7 +396,7 @@ export default function Profit() {
 
                 {/* Mobile */}
                 <div className="sm:hidden divide-y">
-                  {summary.products.map((product) => (
+                  {productPerformance.map((product) => (
                     <div key={product.product_id} className="py-4 first:pt-0">
                       <div className="flex justify-between gap-3 mb-2">
                         <div>
